@@ -339,29 +339,32 @@
     scroll-behavior: smooth;
   }
 
+  /* Scrollbar tổng thể cho cả hệ thống Mojin Air */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px; /* Cho thanh mảnh lại tí nhìn cho sang */
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--secondary);
+    background: var(--matcha-lighter); /* Nền xanh nhạt cực nhẹ */
     border-radius: var(--radius);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--primary);
+    background: var(--forest); /* Màu rừng rậm làm chủ đạo */
     border-radius: var(--radius);
-    border: 2px solid var(--secondary);
+    border: 2px solid var(--matcha-lighter); /* Tạo hiệu ứng cách lề */
+    transition: all 0.3s ease;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-light);
+    background: var(--forest-dark); /* Hover phát là đậm chất rừng già */
   }
 
+  /* Firefox support */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--primary) var(--secondary);
+    scrollbar-color: var(--forest) var(--matcha-lighter);
   }
 }
 

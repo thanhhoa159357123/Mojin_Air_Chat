@@ -13,10 +13,23 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
+            $table->string('first_name')->index();
+            $table->string('last_name')->index();
+            $table->string('username')->nullable(); // @biệt_danh
+
+            // Email và Phone đều để nullable để check logic "1 trong 2" ở tầng Code
+            $table->string('email')->unique()->nullable();
+            $table->string('phone')->unique()->nullable();
+
             $table->string('password');
+            $table->string('avatar')->nullable(); // Lưu path ảnh matcha
+            $table->string('bio')->nullable();    // Dòng giới thiệu ngắn
+
+            // Trạng thái hoạt động
+            $table->enum('status', ['online', 'offline'])->default('offline');
+            $table->timestamp('last_active_at')->nullable();
+
+            $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

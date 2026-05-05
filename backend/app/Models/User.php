@@ -2,32 +2,34 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens; // Thêm cái này để dùng Token sau này
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    /** @use HasFactory<\Database\Factories\UserFactory> */
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Những thuộc tính có thể điền (Mass assignable)
      */
     protected $fillable = [
-        'name',
+        'first_name',
+        'last_name',
+        'username',
         'email',
+        'phone',
         'password',
+        'avatar',
+        'bio',
+        'status',
+        'last_active_at',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Những thuộc tính nên ẩn đi khi xuất API (đảm bảo bảo mật)
      */
     protected $hidden = [
         'password',
@@ -35,15 +37,39 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Ép kiểu dữ liệu (Casting)
      */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_active_at' => 'datetime', // Ép kiểu về datetime để dùng Carbon cho sướng
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Tuyệt chiêu Architect: Tự động gộp Full Name cho Frontend
+     * Giúp bác ở FE chỉ cần gọi user.full_name là xong
+     */
+    protected $appends = ['full_name'];
+
+    public function getFullNameAttribute()
+    {
+        return "{$this->first_name} {$this->last_name}";
+    }
+
+    public function friends()
+    {
+        return $this->belongsToMany(User::class, 'friends', 'user_id', 'friend_id')
+            ->withPivot('status') // Phím thêm cột này để check status bác nhé
+            ->withTimestamps();
+    }
+
+    public function friendRequests()
+    {
+        return $this->belongsToMany(User::class, 'friends', 'friend_id', 'user_id')
+            ->withPivot('status')
+            ->wherePivot('status', 0);
     }
 }
