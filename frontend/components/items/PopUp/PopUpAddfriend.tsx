@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 interface IPopUpAddFriend {
   addFriend: (friendId: number) => Promise<void>;
-  friends: IFriend[]; // Tạm thời để any, sau này sẽ chỉnh lại khi có type chính xác
+  searchResults: IFriend[]; // Thay friends bằng searchResults
   searchFriends: (query: string, page?: number) => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -14,9 +14,11 @@ interface IPopUpAddFriend {
   onCloseAddFriend: () => void;
 }
 
+
+
 const PopUpAddfriend = ({
   addFriend,
-  friends,
+  searchResults,
   searchFriends,
   loading,
   error,
@@ -100,16 +102,16 @@ const PopUpAddfriend = ({
               Gợi ý cho bác
             </p>
             <span className="text-[10px] bg-matcha-lighter dark:bg-matcha-dark/30 text-forest dark:text-mint px-2 py-0.5 rounded-full font-bold">
-              {friends?.length || 0} người
+              {searchResults?.length || 0} người
             </span>
           </div>
 
           {error && <p className="text-sm text-red-500 px-1 mb-2">{error}</p>}
 
           <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-            {friends && friends.length > 0 ? (
+            {searchResults && searchResults.length > 0 ? (
               <>
-                {friends.map((user) => (
+                {searchResults.map((user) => (
                   <div
                     key={user.id}
                     className="flex items-center justify-between p-3 rounded-2xl hover:bg-matcha-lighter/20 dark:hover:bg-forest-lighter/10 transition-all border border-transparent hover:border-sage/10 group"

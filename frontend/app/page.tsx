@@ -27,13 +27,14 @@ export default function Home() {
 
     searchFriends,
     friends,
+    searchResults,
     friendRequests,
     loading,
     loadingRequests,
     error,
     hasMore,
   } = useFriendHook();
-  const [isOptionOpen, setIsOptionOpen] = useState(true);
+  const [isOptionOpen, setIsOptionOpen] = useState(false);
 
   return (
     <div className="w-full h-screen bg-slate-100 flex gap-4 px-4 py-3 overflow-hidden font-sans">
@@ -112,7 +113,7 @@ export default function Home() {
               <PopUpAddfriend
                 addFriend={handleAddFriend}
                 onCloseAddFriend={handleCloseAddFriendPopup}
-                friends={friends}
+                searchResults={searchResults}
                 searchFriends={searchFriends}
                 loading={loading}
                 error={error}

@@ -10,6 +10,7 @@ import { create } from "zustand";
 
 export const useFriendStore = create<IFriendState>((set) => ({
   friends: [],
+  searchResults: [],
   friendRequests: [],
   loading: false,
   loadingRequests: false,
@@ -32,8 +33,8 @@ export const useFriendStore = create<IFriendState>((set) => ({
       const response = await searchFriends(query, page);
       set((state) => ({
         // Cuốn bí kíp: Nếu trang 1 thì reset mảng, trang > 1 thì rải mảng cũ cộng thêm mảng mới
-        friends:
-          page === 1 ? response.data : [...state.friends, ...response.data],
+        searchResults:
+          page === 1 ? response.data : [...state.searchResults, ...response.data],
         hasMore: response.hasMore,
         loading: false,
       }));

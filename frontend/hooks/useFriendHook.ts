@@ -11,6 +11,7 @@ export const useFriendHook = () => {
     fetchFriendRequests,
 
     friends,
+    searchResults,
     friendRequests,
     loading,
     loadingRequests,
@@ -77,6 +78,7 @@ export const useFriendHook = () => {
 
     searchFriends,
     friends,
+    searchResults,
     friendRequests, // Xuất thêm cái này ra cho Component xài
     loading,
     loadingRequests, // Xuất thêm cái này để làm hiệu ứng xoay xoay

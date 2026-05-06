@@ -10,6 +10,7 @@ export interface IFriend {
 
 export interface IFriendState {
   friends: IFriend[];
+  searchResults: IFriend[];
   friendRequests: IFriend[]; // Mảng này sẽ chứa các lời mời kết bạn đang chờ xử lý
   loading: boolean;
   loadingRequests: boolean; // Biến loading riêng cho việc fetch lời mời kết bạn

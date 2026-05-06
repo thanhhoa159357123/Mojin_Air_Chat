@@ -141,7 +141,7 @@ class FriendController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Đã từ chối lời mời. Huynh đệ tương tàn!',
+            'message' => 'Xin lỗi tôi không quen biết bạn!',
             'data' => ['friend_id' => $friendId]
         ]);
     }
