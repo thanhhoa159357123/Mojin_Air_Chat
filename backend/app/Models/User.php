@@ -72,4 +72,9 @@ class User extends Authenticatable
             ->withPivot('status')
             ->wherePivot('status', 0);
     }
+
+    public function conversations()
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_participants')->withTimestamps();
+    }
 }

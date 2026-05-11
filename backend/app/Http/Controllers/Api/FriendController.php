@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,17 +14,37 @@ class FriendController extends Controller
     public function getFriends(Request $request)
     {
         $user = $request->user();
-
-        // Lấy danh sách bạn bè đã được chấp nhận (status = 1)
         $friends = $user->friends()
             ->wherePivot('status', 1)
             ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar', 'users.status'])
-            ->get();
+            ->get()
+            ->map(function ($friend) use ($user) {
+                // Tìm tin nhắn cuối cùng giữa mình và người bạn này
+                $lastMessage = Message::whereHas('conversation', function ($query) use ($user, $friend) {
+                    $query->where('type', 'private')
+                        // Chú ý: Ở đây dùng id vì đang ở trong query của participants (User)
+                        ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
+                        ->whereHas('participants', fn($p) => $p->where('users.id', $friend->id));
+                })
+                    ->where(function ($query) use ($user) {
+                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
+                            ->orWhereNull('deleted_by_ids');
+                    })
+                    ->orderBy('created_at', 'desc')
+                    ->first();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $friends
-        ]);
+                // Gán dữ liệu tin nhắn cuối cùng vào object friend
+                $friend->last_message = $lastMessage ? [
+                    'content' => $lastMessage->content,
+                    'user_id' => $lastMessage->user_id,
+                    'time' => $lastMessage->created_at->diffForHumans(),
+                ] : null;
+                $friend->makeHidden(['pivot']);
+
+                return $friend;
+            });
+
+        return response()->json($friends);
     }
 
     /**
@@ -147,6 +168,33 @@ class FriendController extends Controller
     }
 
     public function searchFriends(Request $request)
+    {
+        $request->validate([
+            'query' => 'required|string|min:1'
+        ]);
+
+        $user = $request->user();
+        $searchTerm = $request->query('query');
+
+        // Đổi ->get() thành ->simplePaginate()
+        $results = User::query()
+            ->where(function ($q) use ($searchTerm) {
+                $q->where('first_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('last_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('username', 'like', "%{$searchTerm}%");
+            })
+            ->where('id', '!=', $user->id)
+            ->select(['id', 'first_name', 'last_name', 'username', 'avatar'])
+            ->simplePaginate(15); // Lấy 15 người một trang cho nó vừa mâm
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $results->items(), // Giờ thì hàm items() chạy vi vu
+            'hasMore' => $results->hasMorePages(), // FE cũng check được còn data để load không
+        ]);
+    }
+
+    public function searchFriendForChat(Request $request)
     {
         $request->validate([
             'query' => 'required|string|min:1'

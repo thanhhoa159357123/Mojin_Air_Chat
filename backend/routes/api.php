@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FriendController;
+use App\Http\Controllers\Api\ConversationController;
+use App\Http\Controllers\Api\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,5 +50,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Tìm kiếm người dùng để kết bạn (dựa trên tên hoặc username)
         Route::get('/search', [FriendController::class, 'searchFriends']);
+    });
+
+    // --- Chức năng Nhắn tin (Chat) ---
+    // Lấy danh sách các cuộc trò chuyện (Hộp thư đến)
+    Route::get('/conversations', [ConversationController::class, 'getConversations']);
+
+    Route::prefix('messages')->group(function () {
+        // Lấy danh sách tin nhắn với 1 người bạn cụ thể (nhập ID của bạn bè)
+        Route::get('/{friendId}', [MessageController::class, 'getMessageWithFriend']);
+
+        // Gửi tin nhắn mới
+        Route::post('/', [MessageController::class, 'sendMessage']);
+
+        // Thu hồi tin nhắn (cả 2 người đều mất)
+        Route::delete('/{friendId}/{messageId}', [MessageController::class, 'deleteMessage']);
+
+        // Xóa tin nhắn (chỉ ẩn với người xóa, không xóa thật)
+        Route::delete('/{friendId}', [MessageController::class, 'deleteAllMessages']);
     });
 });
