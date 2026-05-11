@@ -9,6 +9,10 @@ export const useFriendHook = () => {
     addFriend,
     acceptFriendRequest,
     fetchFriendRequests,
+    rejectFriendRequest,
+
+    selectedFriend,
+    setSelectedFriend,
 
     friends,
     searchResults,
@@ -23,7 +27,16 @@ export const useFriendHook = () => {
   const [isPopUpNotiOpen, setIsPopUpNotiOpen] = useState(false);
 
   useEffect(() => {
+    // 1. Gọi lần đầu khi load trang
     getFriends();
+
+    // 2. Thiết lập chạy ngầm mỗi 5 giây để cập nhật tin nhắn cuối cùng (last_message)
+    const intervalId = setInterval(() => {
+      // Mình gọi thầm lặng thôi, không cần set loading: true làm gì cho cực
+      getFriends();
+    }, 3000); // 3 giây là đẹp cho sidebar
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleOpenAddFriendPopup = () => {
@@ -65,16 +78,30 @@ export const useFriendHook = () => {
     }
   };
 
+  // Hàm này sẽ từ chối lời mời kết bạn
+  const handleRejectFriendRequest = async (friendId: number) => {
+    try {
+      await rejectFriendRequest(friendId);
+    } catch (error) {
+      toast.error("Từ chối bạn bè thất bại. Thử lại nhé!");
+      throw error;
+    }
+  };
+
   return {
     handleAddFriend,
     isPopUpAddFriendOpen,
     handleOpenAddFriendPopup,
     handleCloseAddFriendPopup,
     handleAcceptFriendRequest,
+    handleRejectFriendRequest,
 
     isPopUpNotiOpen,
     handleOpenNotiPopup,
     handleCloseNotiPopup,
+
+    selectedFriend,
+    setSelectedFriend,
 
     searchFriends,
     friends,

@@ -1,5 +1,6 @@
 "use client";
 
+import { IFriend } from "@/types/friend";
 import {
   Bell,
   ChevronRight,
@@ -8,33 +9,43 @@ import {
   PaletteIcon,
   Search,
   ThumbsUpIcon,
+  Trash,
   UserPenIcon,
 } from "lucide-react";
 import { useState } from "react";
 
-const OptionDetail = () => {
-  const [isOpen, setIsOpen] = useState(false);
+interface OptionDetailProps {
+  selectedFriend: IFriend | null; // Thêm prop này để nhận bạn bè đang được chọn từ parent component
+  handleAllDeleteMessages: () => void; // Thêm prop này để nhận hàm xoá tin nhắn từ parent component
+}
+
+const OptionDetail = ({
+  selectedFriend,
+  handleAllDeleteMessages,
+}: OptionDetailProps) => {
+  const [isOpenSettingChat, setIsOpenSettingChat] = useState(false);
   const [isOpenMedia, setIsOpenMedia] = useState(false);
+  const [isOpenPrivacy, setIsOpenPrivacy] = useState(false);
 
   return (
     <div className="flex flex-col h-full bg-white/40 dark:bg-gray-900/40 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-sage/20 dark:border-sage/10">
       {/* Header Profile */}
-      <div className="relative px-5 py-6 bg-gradient-to-b from-sage-lighter/30 to-transparent dark:from-forest-lighter/10">
+      <div className="relative px-5 py-6 bg-linear-to-b from-sage-lighter/30 to-transparent dark:from-forest-lighter/10">
         {/* Decorative blob nhỏ */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-matcha/5 dark:bg-mint/5 rounded-full blur-2xl" />
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-forest/5 dark:bg-forest/10 rounded-full blur-2xl" />
 
         <div className="relative flex flex-col items-center justify-center">
           <div className="relative">
-            <div className="size-20 rounded-full bg-gradient-to-br from-forest to-matcha shadow-lg ring-4 ring-white/50 dark:ring-gray-800/50" />
+            <div className="size-20 rounded-full bg-linear-to-br from-forest to-matcha shadow-lg ring-4 ring-white/50 dark:ring-gray-800/50" />
             <div className="absolute bottom-1 right-1 size-4 bg-matcha rounded-full ring-2 ring-white dark:ring-gray-800 animate-pulse" />
           </div>
           <div className="text-center mt-3">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-forest to-matcha dark:from-mint dark:to-matcha bg-clip-text text-transparent">
-              Tên người dùng
+            <h2 className="text-xl font-bold bg-linear-to-r from-forest to-matcha dark:from-mint dark:to-matcha bg-clip-text text-transparent">
+              {selectedFriend ? selectedFriend.full_name : "Chọn một bạn bè"}
             </h2>
             <h3 className="text-sm text-sage dark:text-sage-light mt-0.5">
-              @biệt danh
+              @{selectedFriend ? selectedFriend.username : "username"}
             </h3>
           </div>
           <div className="mt-5 flex items-center gap-6">
@@ -64,21 +75,23 @@ const OptionDetail = () => {
         <div className="rounded-xl overflow-hidden">
           <div
             className="flex items-center justify-between px-3 py-3 cursor-pointer transition-all duration-200 hover:bg-sage-lighter/30 dark:hover:bg-forest-lighter/20 group"
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={() => setIsOpenSettingChat(!isOpenSettingChat)}
           >
             <span className="font-medium text-foreground dark:text-matcha-light group-hover:text-forest dark:group-hover:text-mint">
               Tùy chỉnh đoạn chat
             </span>
             <ChevronRight
               className={`size-4 text-sage transition-all duration-300 ${
-                isOpen ? "rotate-90 text-matcha" : "group-hover:translate-x-0.5"
+                isOpenSettingChat
+                  ? "rotate-90 text-matcha"
+                  : "group-hover:translate-x-0.5"
               }`}
             />
           </div>
 
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              isOpen ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
+              isOpenSettingChat ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
             }`}
           >
             <div className="px-2 py-1 space-y-1">
@@ -148,6 +161,46 @@ const OptionDetail = () => {
                 </div>
                 <span className="text-sm text-foreground dark:text-matcha-light">
                   File (5)
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Option 3: Quyền riêng tư và hỗ trợ */}
+        <div className="rounded-xl overflow-hidden">
+          <div
+            className="flex items-center justify-between px-3 py-3 cursor-pointer transition-all duration-200 hover:bg-sage-lighter/30 dark:hover:bg-forest-lighter/20 group"
+            onClick={() => setIsOpenPrivacy(!isOpenPrivacy)}
+          >
+            <span className="font-medium text-foreground dark:text-matcha-light group-hover:text-forest dark:group-hover:text-mint">
+              Quyền riêng tư và hỗ trợ
+            </span>
+            <ChevronRight
+              className={`size-4 text-sage transition-all duration-300 ${
+                isOpenPrivacy
+                  ? "rotate-90 text-matcha"
+                  : "group-hover:translate-x-0.5"
+              }`}
+            />
+          </div>
+
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              isOpenPrivacy ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
+            }`}
+          >
+            <div className="px-2 py-1 space-y-1">
+              <div
+                onClick={() =>
+                  selectedFriend && handleAllDeleteMessages()
+                }
+                className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-sage-lighter/40 dark:hover:bg-forest-lighter/20 group/item"
+              >
+                <div className="p-1.5 rounded-lg bg-forest/10 dark:bg-forest/20 group-hover/item:bg-forest/20 dark:group-hover/item:bg-forest/30 transition-colors">
+                  <Trash className="size-4 text-forest dark:text-mint" />
+                </div>
+                <span className="text-sm text-foreground dark:text-matcha-light">
+                  Xoá tin nhắn
                 </span>
               </div>
             </div>

@@ -4,12 +4,17 @@ import { Plus, Search } from "lucide-react";
 interface ListFriendProps {
   onToggleAddFriend: () => void;
   friends: IFriend[]; // Thêm prop này để nhận danh sách bạn bè từ parent component
+  selectedFriend: IFriend | null; // Thêm prop này để nhận bạn bè đang được chọn từ parent component
+  setSelectedFriend: (friend: IFriend | null) => void; // Thêm prop này để cập nhật bạn bè đang được chọn lên parent component
 }
 
-const ListFriend = ({ onToggleAddFriend, friends }: ListFriendProps) => {
-  // Dữ liệu bạn bè mẫu
-  console.log("firne", friends);
-
+const ListFriend = ({
+  onToggleAddFriend,
+  friends,
+  selectedFriend,
+  setSelectedFriend,
+}: ListFriendProps) => {
+  console.log(friends);
   return (
     <div className="flex flex-col h-full bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-sage/20 dark:border-sage/10">
       {/* Header Search */}
@@ -40,7 +45,12 @@ const ListFriend = ({ onToggleAddFriend, friends }: ListFriendProps) => {
         {friends.map((friend) => (
           <div
             key={friend.id}
-            className="flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-200 hover:bg-sage-lighter/30 dark:hover:bg-forest-lighter/20 group"
+            onClick={() => setSelectedFriend(friend)} // Cập nhật bạn bè đang được chọn khi click vào item
+            className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-200 ${
+              selectedFriend?.id === friend.id
+                ? "bg-matcha/20 dark:bg-mint/20"
+                : "hover:bg-sage-lighter/30 dark:hover:bg-forest-lighter/20"
+            } group`}
           >
             {/* Avatar với trạng thái online */}
             <div className="relative group cursor-pointer">
@@ -53,31 +63,41 @@ const ListFriend = ({ onToggleAddFriend, friends }: ListFriendProps) => {
             </div>
 
             {/* Thông tin */}
-            <div className="flex-1">
+            <div className="flex-1 overflow-hidden">
+              {" "}
+              {/* Thêm overflow-hidden để truncate chạy chuẩn */}
               <div className="flex items-center justify-between">
-                <span className="font-medium text-foreground dark:text-matcha-light group-hover:text-forest dark:group-hover:text-mint transition-colors">
+                <span className="font-medium text-foreground dark:text-matcha-light group-hover:text-forest dark:group-hover:text-mint transition-colors truncate">
                   {friend.full_name}
                 </span>
-                <span className="text-[10px] text-sage dark:text-sage-light">
-                  {friend.status ? "● Vừa xong" : "○ 2 giờ trước"}
+                {/* Hiển thị thời gian từ Backend gửi về */}
+                <span className="text-[10px] text-sage dark:text-sage-light whitespace-nowrap ml-2">
+                  {friend.last_message?.time || ""}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <span
-                  className={`text-xs ${
-                    friend.status
-                      ? "text-matcha dark:text-mint"
-                      : "text-sage dark:text-sage-light"
-                  }`}
-                >
-                  {friend.status}
+                {/* LOGIC HIỂN THỊ TIN NHẮN CUỐI CÙNG */}
+                <span className="text-xs text-sage dark:text-sage-light truncate max-w-[200px]">
+                  {friend.last_message ? (
+                    <>
+                      {/* Nếu user_id trong tin nhắn cuối là ID của mình thì hiện chữ "Bạn: " */}
+                      {/* Lưu ý: Thay 'user?.id' bằng biến ID người dùng đang đăng nhập của bác nhé */}
+                      {friend.last_message.user_id !== friend.id ? (
+                        <span className="font-semibold text-forest/70 dark:text-mint/70">
+                          Bạn:{" "}
+                        </span>
+                      ) : null}
+                      {friend.last_message.content}
+                    </>
+                  ) : (
+                    <span className="opacity-50 italic">Chưa có tin nhắn</span>
+                  )}
                 </span>
-                <span className="text-xs text-sage/50 dark:text-sage/30">
-                  •
-                </span>
-                {/* <span className="text-xs text-sage dark:text-sage-light truncate max-w-35">
-                  {friend.lastMessage}
-                </span> */}
+
+                {/* Giữ lại cái chấm online nếu bác muốn, hoặc bỏ qua vì đã có ở avatar */}
+                {friend.status && (
+                  <span className="size-1.5 bg-matcha rounded-full animate-pulse ml-1" />
+                )}
               </div>
             </div>
           </div>

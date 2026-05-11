@@ -1,16 +1,19 @@
 import { IFriend } from "@/types/friend";
 import { Loader2 } from "lucide-react";
+import Image from "next/image";
 
 interface IPopUpNotification {
   friendRequests: IFriend[];
   loadingRequests: boolean;
   acceptFriendRequest: (friendId: number) => Promise<void>;
+  rejectFriendRequest: (friendId: number) => Promise<void>;
 }
 
 const PopUpNotification = ({
   friendRequests,
   loadingRequests,
   acceptFriendRequest,
+  rejectFriendRequest,
 }: IPopUpNotification) => {
   return (
     <div className="w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-sage/20 dark:border-sage/10 overflow-hidden animate-scale-in max-h-100 overflow-y-auto custom-scrollbar">
@@ -29,10 +32,12 @@ const PopUpNotification = ({
             <div className="flex items-start gap-3">
               <div className="shrink-0">
                 {user.avatar ? (
-                  <img
+                  <Image
                     src={user.avatar}
                     alt="avatar"
-                    className="size-10 rounded-full object-cover shadow-md ring-2 ring-white/50"
+                    className="rounded-full object-cover shadow-md ring-2 ring-white/50"
+                    width={32}
+                    height={32}
                   />
                 ) : (
                   <div className="size-10 rounded-full bg-linear-to-br from-forest to-matcha shadow-md ring-2 ring-white/50" />
@@ -52,7 +57,10 @@ const PopUpNotification = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-4 pt-2">
+            <div
+              onClick={() => rejectFriendRequest(user.id)}
+              className="flex items-center gap-2 mt-4 pt-2"
+            >
               <button className="flex-1 px-3 py-1.5 text-sm font-medium text-sage dark:text-sage-light bg-sage-lighter/50 dark:bg-gray-700/50 rounded-lg hover:bg-sage-lighter dark:hover:bg-gray-700 transition-all duration-200 cursor-pointer">
                 Từ chối
               </button>

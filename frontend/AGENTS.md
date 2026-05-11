@@ -41,3 +41,14 @@ Mọi tính năng của dự án BẮT BUỘC phải chạy theo luồng flow 5 
 - **Cấm chạm vào UI đã có:** Tuyệt đối KHÔNG ĐƯỢC tự ý thay đổi, thêm, bớt các class của TailwindCSS (`className="..."`) trong các component đã có sẵn trừ khi được yêu cầu rõ ràng.
 - **Tách biệt Logic và UI:** Nếu yêu cầu chỉ là thêm logic (hooks, state, call API), chỉ được phép sửa đổi phần TypeScript/Logic phía trên `return()`. Phần cấu trúc HTML và các class Tailwind bên dưới phải được GIỮ NGUYÊN 100%.
 - **Thêm mới:** Khi được yêu cầu tạo Component mới hoàn toàn, hãy tự viết Tailwind cơ bản, nhưng phải tuân thủ nghiêm ngặt bảng màu và theme đã set up.
+
+### 🔒 SAFE EDIT RULE
+- Chỉ sửa đúng phần được yêu cầu
+- Không refactor ngoài phạm vi task
+- Không đổi tên biến/hàm nếu không cần thiết
+- Không xóa code nếu chưa được yêu cầu rõ ràng
+
+### 🧠 STATE RULE
+- Mỗi state chỉ đại diện cho 1 ý nghĩa duy nhất
+- Không dùng chung state cho nhiều mục đích
+- Tên state phải phản ánh đúng bản chất dữ liệu

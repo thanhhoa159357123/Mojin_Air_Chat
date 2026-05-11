@@ -1,11 +1,13 @@
+import { extractErrorMessage } from "@/lib/errorHandler";
 import {
   acceptFriend,
   addFriend,
   getFriendRequests,
   getFriends,
+  rejectFriend,
   searchFriends,
 } from "@/services/friendService";
-import { IFriendState } from "@/types/friend";
+import { IFriend, IFriendState } from "@/types/friend";
 import { create } from "zustand";
 
 export const useFriendStore = create<IFriendState>((set) => ({
@@ -17,13 +19,21 @@ export const useFriendStore = create<IFriendState>((set) => ({
   error: null,
   hasMore: false, // Khởi tạo ban đầu là false
 
+  selectedFriend: null, // Khởi tạo selectedFriend là null
+  setSelectedFriend: (friend: IFriend | null) =>
+    set({ selectedFriend: friend }), // Hàm để cập nhật selectedFriend
+
   getFriends: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await getFriends();
-      set({ friends: response.data, loading: false });
-    } catch (error: any) {
-      set({ error: "Lỗi tải bạn bè rùi!", loading: false });
+      const friends = await getFriends();
+      set({ friends: friends, loading: false });
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Đã có lỗi xảy ra khi tải danh mục.",
+      );
+      set({ error: errorMessage, loading: false });
     }
   },
 
@@ -34,38 +44,68 @@ export const useFriendStore = create<IFriendState>((set) => ({
       set((state) => ({
         // Cuốn bí kíp: Nếu trang 1 thì reset mảng, trang > 1 thì rải mảng cũ cộng thêm mảng mới
         searchResults:
-          page === 1 ? response.data : [...state.searchResults, ...response.data],
+          page === 1
+            ? response.data
+            : [...state.searchResults, ...response.data],
         hasMore: response.hasMore,
         loading: false,
       }));
-    } catch (error: any) {
-      set({ error: "Toang rồi bác ơi! Lỗi gọi API.", loading: false });
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Đã có lỗi xảy ra khi tải danh mục.",
+      );
+      set({ error: errorMessage, loading: false });
     }
   },
 
   addFriend: async (friendId: number) => {
     try {
       await addFriend(friendId);
-    } catch (error: any) {
-      set({ error: "Thêm bạn thất bại. Thử lại nhé!" });
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Đã có lỗi xảy ra khi tải danh mục.",
+      );
+      set({ error: errorMessage, loading: false });
     }
   },
 
   fetchFriendRequests: async () => {
     set({ loadingRequests: true, error: null });
     try {
-      const response = await getFriendRequests();
-      set({ friendRequests: response.data, loadingRequests: false });
-    } catch (error: any) {
-      set({ error: "Lỗi tải thông báo rùi!", loadingRequests: false });
+      const friendRequests = await getFriendRequests();
+      set({ friendRequests: friendRequests, loadingRequests: false });
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Đã có lỗi xảy ra khi tải danh mục.",
+      );
+      set({ error: errorMessage, loading: false });
     }
   },
 
   acceptFriendRequest: async (friendId: number) => {
     try {
       await acceptFriend(friendId);
-    } catch (error: any) {
-      set({ error: "Chấp nhận bạn bè thất bại. Thử lại nhé!" });
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Đã có lỗi xảy ra khi tải danh mục.",
+      );
+      set({ error: errorMessage, loading: false });
+    }
+  },
+
+  rejectFriendRequest: async (friendId: number) => {
+    try {
+      await rejectFriend(friendId);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Đã có lỗi xảy ra khi tải danh mục.",
+      );
+      set({ error: errorMessage, loading: false });
     }
   },
 }));
