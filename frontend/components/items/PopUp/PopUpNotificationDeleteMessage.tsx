@@ -11,16 +11,15 @@ const PopUpNotificationDeleteMessage = ({
   messageId,
   handleDeleteMessage,
 }: PopUpNotificationDeleteMessageProps) => {
+  console.log("mes", messageId);
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-150 shadow-xl flex flex-col gap-3">
+    <div className="bg-card rounded-2xl p-6 w-150 shadow-xl flex flex-col gap-3 border border-border">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-foreground dark:text-matcha-light">
-          Xóa tin nhắn
-        </h2>
+        <h2 className="text-xl font-bold text-foreground">Xóa tin nhắn</h2>
       </div>
       <div>
-        <p className="text-sm text-sage dark:text-sage-light leading-relaxed">
+        <p className="text-sm text-muted-foreground leading-relaxed">
           Tin nhắn này sẽ bị gỡ khỏi thiết bị của bạn, nhưng vẫn hiển thị với
           các thành viên khác trong đoạn chat.
         </p>
@@ -29,7 +28,7 @@ const PopUpNotificationDeleteMessage = ({
       <div className="flex justify-end gap-3 mt-4">
         <button
           onClick={onClose}
-          className="px-4 py-2 text-sm font-medium text-sage hover:bg-sage-lighter dark:hover:bg-gray-700 rounded-md transition-colors cursor-pointer"
+          className="px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary rounded-md transition-colors cursor-pointer"
         >
           Hủy
         </button>
@@ -40,7 +39,7 @@ const PopUpNotificationDeleteMessage = ({
               if (onClose) onClose();
             }
           }}
-          className="px-4 py-2 text-sm font-medium bg-red-500 text-white rounded-md hover:bg-red-600 shadow-md hover:shadow-lg transition-all cursor-pointer"
+          className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 shadow-sm hover:shadow-md transition-all cursor-pointer"
         >
           Xóa
         </button>

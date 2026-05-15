@@ -16,9 +16,6 @@ class ConversationParticipant extends Model
         'joined_at'
     ];
 
-    // Tắt tự động quản lý timestamps nếu bảng của bác không có created_at/updated_at
-    // (Nhưng ở file migration bác có dùng $table->timestamps() nên ta cứ để nguyên, không cần tắt)
-
     /**
      * Định nghĩa ngược lại: Bản ghi này là của User nào
      */

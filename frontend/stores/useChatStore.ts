@@ -14,10 +14,10 @@ export const useChatStore = create<IChatState>((set) => ({
   error: null,
 
   // 1. Lấy tin nhắn (Cho Khung chat chính)
-  fetchMessages: async (friendId: number) => {
+  fetchMessages: async (friendId: number, type: "private" | "group") => {
     set({ loading: true, error: null });
     try {
-      const data = await getMessage(friendId); // Tái sử dụng hàm ở service
+      const data = await getMessage(friendId, type); // Tái sử dụng hàm ở service
       set({
         messages: data.data || data,
         loading: false,
@@ -29,9 +29,15 @@ export const useChatStore = create<IChatState>((set) => ({
   },
 
   // 2. Gửi tin nhắn
-  sendMessage: async (friendId: number, content: string) => {
+  sendMessage: async (
+    id: number,
+    type: "private" | "group", // <--- Thêm cái này
+    content: string,
+    parent_id?: number | null,
+    msgType: string = "text",
+  ) => {
     try {
-      const data = await sendMessage(friendId, content); // Tái sử dụng hàm ở service
+      const data = await sendMessage(id, type, content, parent_id, msgType); // Tái sử dụng hàm ở service
       const newMessage = data.data || data;
 
       // Nhét tin nhắn mới vào mảng cũ

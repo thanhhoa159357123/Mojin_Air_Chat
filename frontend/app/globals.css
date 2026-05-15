@@ -60,6 +60,18 @@
   --color-sage-dark: var(--sage-dark);
   --color-sage-darker: var(--sage-darker);
 
+  /* DẢI MÀU CẢNH BÁO (ĐỎ/CAM ĐỎ) */
+  --color-danger-lighter: var(--danger-lighter);
+  --color-danger-light: var(--danger-light);
+  --color-danger: var(--danger);
+  --color-danger-dark: var(--danger-dark);
+
+  /* DẢI MÀU NHẤN CÔNG NGHỆ (TÍM NHẠT/LAVENDER) */
+  --color-lavender-lighter: var(--lavender-lighter);
+  --color-lavender-light: var(--lavender-light);
+  --color-lavender: var(--lavender);
+  --color-lavender-dark: var(--lavender-dark);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -78,30 +90,32 @@
 :root {
   --radius: 0.625rem;
 
-  --background: oklch(0.98 0.008 85);
-  --foreground: oklch(0.3 0.035 60);
-  --card: oklch(0.97 0.015 85);
-  --card-foreground: oklch(0.3 0.035 60);
-  --popover: oklch(0.98 0.008 85);
-  --popover-foreground: oklch(0.3 0.035 60);
+  /* Nền tảng ánh xanh cực nhẹ (Trắng sữa matcha) */
+  --background: oklch(0.98 0.008 145);
+  --foreground: oklch(0.3 0.035 145);
 
-  --primary: oklch(0.5 0.07 60);
-  --primary-foreground: oklch(0.98 0.008 85);
-  --primary-light: oklch(0.7 0.05 65);
-  --primary-lighter: oklch(0.85 0.03 70);
+  --card: oklch(0.99 0.005 145);
+  --card-foreground: oklch(0.3 0.035 145);
+  --popover: oklch(0.99 0.005 145);
+  --popover-foreground: oklch(0.3 0.035 145);
 
-  --secondary: oklch(0.92 0.03 75);
-  --secondary-foreground: oklch(0.4 0.05 60);
-  --secondary-light: oklch(0.95 0.02 80);
+  --primary: oklch(0.55 0.1 135); /* Forest gốc */
+  --primary-foreground: oklch(0.98 0.008 145);
+  --primary-light: oklch(0.7 0.08 135);
+  --primary-lighter: oklch(0.85 0.05 135);
 
-  --muted: oklch(0.94 0.015 85);
-  --muted-foreground: oklch(0.55 0.035 60);
+  --secondary: oklch(0.92 0.03 150); /* Sage nhạt */
+  --secondary-foreground: oklch(0.4 0.05 150);
+  --secondary-light: oklch(0.95 0.02 150);
 
-  --accent: oklch(0.93 0.03 70);
-  --accent-foreground: oklch(0.4 0.05 60);
-  --accent-light: oklch(0.96 0.02 75);
+  --muted: oklch(0.94 0.015 145);
+  --muted-foreground: oklch(0.55 0.035 145);
 
-  --destructive: oklch(0.6 0.13 30);
+  --accent: oklch(0.93 0.03 160); /* Mint nhạt */
+  --accent-foreground: oklch(0.4 0.05 160);
+  --accent-light: oklch(0.96 0.02 160);
+
+  --destructive: var(--danger);
   --destructive-foreground: oklch(0.98 0 0);
 
   /* KHU VỰC XANH LÁ (LIGHT MODE) */
@@ -119,7 +133,7 @@
 
   --forest-lighter: oklch(0.9 0.04 135);
   --forest-light: oklch(0.75 0.08 135);
-  --forest: oklch(0.5 0.1 135);
+  --forest: oklch(0.55 0.1 135);
   --forest-dark: oklch(0.4 0.08 135);
   --forest-darker: oklch(0.3 0.06 135);
 
@@ -129,96 +143,130 @@
   --sage-dark: oklch(0.5 0.05 150);
   --sage-darker: oklch(0.35 0.04 150);
 
-  --border: oklch(0.9 0.02 85);
-  --input: oklch(0.9 0.02 85);
-  --ring: oklch(0.5 0.07 60);
+  /* MÀU TƯƠNG PHẢN - CẢNH BÁO (Đỏ ánh cam dịu) */
+  --danger-lighter: oklch(0.95 0.03 25);
+  --danger-light: oklch(0.8 0.12 25);
+  --danger: oklch(0.6 0.18 25);
+  --danger-dark: oklch(0.45 0.15 25);
 
-  --chart-1: oklch(0.5 0.07 60);
-  --chart-2: oklch(0.65 0.1 70);
-  --chart-3: oklch(0.8 0.12 80);
-  --chart-4: oklch(0.88 0.06 85);
-  --chart-5: oklch(0.93 0.03 70);
+  /* MÀU NHẤN CÔNG NGHỆ (Tím nhạt/Lavender) */
+  --lavender-lighter: oklch(0.96 0.02 290);
+  --lavender-light: oklch(0.88 0.06 290);
+  --lavender: oklch(0.7 0.12 290);
+  --lavender-dark: oklch(0.55 0.1 290);
 
-  --sidebar: oklch(0.97 0.015 85);
-  --sidebar-foreground: oklch(0.3 0.035 60);
-  --sidebar-primary: oklch(0.5 0.07 60);
-  --sidebar-primary-foreground: oklch(0.98 0.008 85);
-  --sidebar-accent: oklch(0.93 0.03 70);
-  --sidebar-accent-foreground: oklch(0.3 0.035 60);
-  --sidebar-border: oklch(0.9 0.02 85);
-  --sidebar-ring: oklch(0.5 0.07 60);
+  --border: oklch(0.9 0.02 145);
+  --input: oklch(0.9 0.02 145);
+  --ring: oklch(0.55 0.1 135);
+
+  --chart-1: oklch(0.55 0.1 135);
+  --chart-2: oklch(0.65 0.12 145);
+  --chart-3: oklch(0.7 0.15 160);
+  --chart-4: oklch(0.88 0.06 150);
+  --chart-5: oklch(0.7 0.12 290);
+
+  --sidebar: oklch(0.97 0.015 145);
+  --sidebar-foreground: oklch(0.3 0.035 145);
+  --sidebar-primary: oklch(0.55 0.1 135);
+  --sidebar-primary-foreground: oklch(0.98 0.008 145);
+  --sidebar-accent: oklch(0.93 0.03 160);
+  --sidebar-accent-foreground: oklch(0.3 0.035 145);
+  --sidebar-border: oklch(0.9 0.02 145);
+  --sidebar-ring: oklch(0.55 0.1 135);
 }
 
+/* ==============================================
+   DARK MODE - ĐÃ FIX LOGIC TƯƠNG PHẢN
+   - lighter = tối hơn (gần nền tối)
+   - darker = sáng hơn (nổi bật trên nền tối)
+   - muted = tối hơn background
+   ============================================== */
 .dark {
-  --background: oklch(0.2 0.025 60);
-  --foreground: oklch(0.96 0.015 85);
-  --card: oklch(0.24 0.025 60);
-  --card-foreground: oklch(0.96 0.015 85);
-  --popover: oklch(0.24 0.025 60);
-  --popover-foreground: oklch(0.96 0.015 85);
+  --background: oklch(0.18 0.015 145);
+  --foreground: oklch(0.96 0.01 145);
 
-  --primary: oklch(0.68 0.1 70);
-  --primary-foreground: oklch(0.18 0.03 60);
-  --primary-light: oklch(0.75 0.08 72);
-  --primary-lighter: oklch(0.82 0.06 75);
+  --card: oklch(0.22 0.02 145);
+  --card-foreground: oklch(0.96 0.01 145);
+  --popover: oklch(0.22 0.02 145);
+  --popover-foreground: oklch(0.96 0.01 145);
 
-  --secondary: oklch(0.35 0.04 60);
-  --secondary-foreground: oklch(0.96 0.015 85);
-  --secondary-light: oklch(0.42 0.035 62);
+  --primary: oklch(0.65 0.12 145);
+  --primary-foreground: oklch(0.15 0.02 145);
+  --primary-light: oklch(0.72 0.1 145);
+  --primary-lighter: oklch(0.82 0.06 145);
 
-  --muted: oklch(0.35 0.035 60);
-  --muted-foreground: oklch(0.72 0.035 75);
+  --secondary: oklch(0.24 0.03 150);
+  --secondary-foreground: oklch(0.96 0.01 145);
+  --secondary-light: oklch(0.3 0.04 150);
 
-  --accent: oklch(0.32 0.04 60);
-  --accent-foreground: oklch(0.96 0.015 85);
-  --accent-light: oklch(0.38 0.035 62);
+  /* FIX: muted tối hơn background (0.15 < 0.18) */
+  --muted: oklch(0.15 0.01 145);
+  /* FIX: muted-foreground vừa phải, dễ đọc trên nền muted */
+  --muted-foreground: oklch(0.6 0.03 145);
 
-  --destructive: oklch(0.45 0.13 30);
-  --destructive-foreground: oklch(0.96 0 0);
+  --accent: oklch(0.24 0.03 160);
+  --accent-foreground: oklch(0.96 0.01 145);
+  --accent-light: oklch(0.3 0.04 160);
 
-  /* KHU VỰC XANH LÁ (DARK MODE) */
-  --matcha-lighter: oklch(0.28 0.04 145);
-  --matcha-light: oklch(0.4 0.08 145);
-  --matcha: oklch(0.6 0.12 145);
-  --matcha-dark: oklch(0.7 0.1 145);
-  --matcha-darker: oklch(0.85 0.08 145);
+  --destructive: oklch(0.7 0.16 25);
+  --destructive-foreground: oklch(0.98 0 0);
 
-  --mint-lighter: oklch(0.25 0.05 160);
-  --mint-light: oklch(0.45 0.1 160);
-  --mint: oklch(0.65 0.15 160);
-  --mint-dark: oklch(0.75 0.12 160);
-  --mint-darker: oklch(0.88 0.1 160);
+  /* ===== FIX: ĐẢO LOGIC lighter/darker ===== */
+  /* Light mode: lighter sáng → dark mode: lighter tối */
 
-  --forest-lighter: oklch(0.2 0.03 135);
-  --forest-light: oklch(0.35 0.06 135);
+  --matcha-lighter: oklch(0.3 0.06 145); /* Tối hơn gốc */
+  --matcha-light: oklch(0.45 0.09 145);
+  --matcha: oklch(0.6 0.12 145); /* Gốc */
+  --matcha-dark: oklch(0.72 0.1 145);
+  --matcha-darker: oklch(0.85 0.06 145); /* Sáng nhất */
+
+  --mint-lighter: oklch(0.35 0.07 160);
+  --mint-light: oklch(0.5 0.11 160);
+  --mint: oklch(0.7 0.15 160);
+  --mint-dark: oklch(0.8 0.12 160);
+  --mint-darker: oklch(0.9 0.06 160);
+
+  --forest-lighter: oklch(0.25 0.05 135);
+  --forest-light: oklch(0.38 0.07 135);
   --forest: oklch(0.55 0.1 135);
-  --forest-dark: oklch(0.65 0.08 135);
-  --forest-darker: oklch(0.8 0.06 135);
+  --forest-dark: oklch(0.68 0.08 135);
+  --forest-darker: oklch(0.82 0.05 135);
 
-  --sage-lighter: oklch(0.25 0.02 150);
-  --sage-light: oklch(0.4 0.04 150);
-  --sage: oklch(0.6 0.06 150);
-  --sage-dark: oklch(0.7 0.05 150);
-  --sage-darker: oklch(0.85 0.04 150);
+  --sage-lighter: oklch(0.3 0.03 150);
+  --sage-light: oklch(0.45 0.04 150);
+  --sage: oklch(0.55 0.05 150);
+  --sage-dark: oklch(0.68 0.04 150);
+  --sage-darker: oklch(0.82 0.03 150);
 
-  --border: oklch(0.35 0.035 60);
-  --input: oklch(0.35 0.035 60);
-  --ring: oklch(0.68 0.1 70);
+  --danger-lighter: oklch(0.4 0.08 25);
+  --danger-light: oklch(0.55 0.12 25);
+  --danger: oklch(0.7 0.16 25);
+  --danger-dark: oklch(0.82 0.1 25);
 
-  --chart-1: oklch(0.68 0.1 70);
-  --chart-2: oklch(0.58 0.085 65);
-  --chart-3: oklch(0.48 0.07 60);
-  --chart-4: oklch(0.38 0.05 60);
-  --chart-5: oklch(0.88 0.13 80);
+  --lavender-lighter: oklch(0.35 0.06 290);
+  --lavender-light: oklch(0.5 0.1 290);
+  --lavender: oklch(0.7 0.14 290);
+  --lavender-dark: oklch(0.82 0.1 290);
 
-  --sidebar: oklch(0.22 0.025 60);
-  --sidebar-foreground: oklch(0.96 0.015 85);
-  --sidebar-primary: oklch(0.68 0.1 70);
-  --sidebar-primary-foreground: oklch(0.18 0.03 60);
-  --sidebar-accent: oklch(0.32 0.04 60);
-  --sidebar-accent-foreground: oklch(0.96 0.015 85);
-  --sidebar-border: oklch(0.35 0.035 60);
-  --sidebar-ring: oklch(0.68 0.1 70);
+  /* FIX: border sáng hơn để thấy rõ trên nền tối */
+  --border: oklch(0.3 0.02 145);
+  --input: oklch(0.24 0.02 145);
+  --ring: oklch(0.65 0.12 145);
+
+  --chart-1: oklch(0.65 0.12 145);
+  --chart-2: oklch(0.55 0.1 135);
+  --chart-3: oklch(0.7 0.15 160);
+  --chart-4: oklch(0.4 0.08 145);
+  --chart-5: oklch(0.75 0.14 290);
+
+  --sidebar: oklch(0.16 0.015 145);
+  --sidebar-foreground: oklch(0.96 0.01 145);
+  --sidebar-primary: oklch(0.65 0.12 145);
+  --sidebar-primary-foreground: oklch(0.15 0.02 145);
+  --sidebar-accent: oklch(0.24 0.03 160);
+  --sidebar-accent-foreground: oklch(0.96 0.01 145);
+  --sidebar-border: oklch(0.3 0.02 145);
+  --sidebar-ring: oklch(0.65 0.12 145);
 }
 
 /* ===== ANIMATIONS ===== */
@@ -234,18 +282,6 @@
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
-}
-/* ===== END ANIMATIONS ===== */
-
-/* ===== CUSTOM UTILITIES ===== */
-@utility input-base {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 200ms;
-}
-
-@utility input-focus {
-  @apply focus:ring-2 focus:ring-matcha dark:focus:ring-mint focus:border-transparent;
 }
 
 @keyframes bounce {
@@ -276,7 +312,6 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Scale animation cho hover */
 @keyframes scaleIn {
   from {
     transform: scale(0.95);
@@ -292,7 +327,6 @@
   animation: scaleIn 0.2s ease-out;
 }
 
-/* Slide animation cho dropdown */
 @keyframes slideDown {
   from {
     transform: translateY(-10px);
@@ -307,20 +341,27 @@
 .slide-down {
   animation: slideDown 0.3s ease-out;
 }
-/* ===== END CUSTOM UTILITIES ===== */
+/* ===== END ANIMATIONS ===== */
+
+/* ===== CUSTOM UTILITIES ===== */
+@utility input-base {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+@utility input-focus {
+  @apply focus:ring-2 focus:ring-matcha dark:focus:ring-mint focus:border-transparent;
+}
 
 @layer utilities {
   .btn-gradient-slide {
-    /* Mở rộng background ra gấp đôi */
     background-size: 200% auto;
-    /* Thiết lập vị trí ban đầu bên trái */
     background-position: left center;
-    /* Transition vị trí background cho mượt */
     transition: background-position 0.5s ease-in-out;
   }
 
   .btn-gradient-slide:hover {
-    /* Khi hover thì trượt qua phải */
     background-position: right center;
   }
 }
@@ -339,29 +380,27 @@
     scroll-behavior: smooth;
   }
 
-  /* Scrollbar tổng thể cho cả hệ thống Mojin Air */
   ::-webkit-scrollbar {
-    width: 8px; /* Cho thanh mảnh lại tí nhìn cho sang */
+    width: 8px;
     height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--matcha-lighter); /* Nền xanh nhạt cực nhẹ */
+    background: var(--matcha-lighter);
     border-radius: var(--radius);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--forest); /* Màu rừng rậm làm chủ đạo */
+    background: var(--forest);
     border-radius: var(--radius);
-    border: 2px solid var(--matcha-lighter); /* Tạo hiệu ứng cách lề */
+    border: 2px solid var(--matcha-lighter);
     transition: all 0.3s ease;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--forest-dark); /* Hover phát là đậm chất rừng già */
+    background: var(--forest-dark);
   }
 
-  /* Firefox support */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--forest) var(--matcha-lighter);

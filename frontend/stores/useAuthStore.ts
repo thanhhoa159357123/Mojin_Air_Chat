@@ -10,6 +10,7 @@ import {
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { login, logout, register } from "../services/authService";
+import Cookies from "js-cookie";
 
 export const useAuthStore = create<IAuthState>()(
   persist(
@@ -33,7 +34,7 @@ export const useAuthStore = create<IAuthState>()(
         set({ loading: true, error: null });
         try {
           const res = await register(data);
-          console.log("auth soter", res)
+          console.log("auth soter", res);
           set({
             user: res.user,
             isAuthenticated: true,
@@ -74,18 +75,33 @@ export const useAuthStore = create<IAuthState>()(
       logout: async () => {
         set({ loading: true });
         try {
+          // Gọi API logout của Laravel để thu hồi Token trên Server
           await logout();
+        } catch (error) {
+          console.error("Logout API lỗi nhưng vẫn xóa trắng client", error);
+        } finally {
+          // 1. Xóa Token ở localStorage
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("mojin-auth-storage"); // Xóa luôn persist storage
+
+            // 2. QUAN TRỌNG: Xóa Cookie để Middleware không bị lú
+            // Bác nhớ check xem lúc Login bác đặt tên Cookie là gì (ở đây tôi để auth_token)
+            Cookies.remove("auth_token", { path: "/" });
+          }
+
+          // 3. Xóa sạch State
           set({
             user: null,
             isAuthenticated: false,
             loading: false,
             error: null,
           });
-        } catch (error) {
-          set({
-            error: "Lỗi khi đăng xuất, Token chắc có vấn đề!",
-            loading: false,
-          });
+
+          // 4. Clear persist storage
+          useAuthStore.persist.clearStorage();
+
+          // 5. Hard reload hoặc chuyển trang sẽ được xử lý ở Hook
         }
       },
 

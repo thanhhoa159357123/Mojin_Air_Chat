@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
 
   // Nếu có token rồi mà còn lượn lờ ở mấy trang login/register -> Tống sang chat cho làm việc
   if (token && publicRoutes.some((route) => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL("/chat", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

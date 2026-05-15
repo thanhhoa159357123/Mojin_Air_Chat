@@ -32,11 +32,18 @@ export const useAuthHook = () => {
 
   const handleLogout = async () => {
     try {
+      toast.loading("Đang đăng xuất...");
       await logout();
-      toast.success("Đăng xuất thành công! Hẹn gặp lại bác sau.");
-      router.push("/login");
+
+      toast.success("Đã đăng xuất! Hẹn gặp lại bác.");
+
+      // Nước đi chí mạng: Dùng window.location để Middleware và Client đồng bộ lại từ đầu
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
     } catch (err) {
-      toast.error("Lỗi khi đăng xuất, thử lại nhé!");
+      // Kể cả lỗi vẫn phải tống về Login
+      window.location.href = "/login";
     }
   };
 

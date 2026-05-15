@@ -22,7 +22,6 @@ export const addFriend = async (
   const response = await axiosClient.post("/friends/add", {
     friend_id: friendId,
   });
-  console.log(response);
   return response.data;
 };
 

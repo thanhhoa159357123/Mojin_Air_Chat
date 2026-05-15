@@ -33,11 +33,23 @@ class FriendController extends Controller
                     ->orderBy('created_at', 'desc')
                     ->first();
 
+                $content = '';
+                if ($lastMessage) {
+                    if ($lastMessage->type === 'image') {
+                        $content = 'Đã gửi hình ảnh mới';
+                    } else if ($lastMessage->type === 'file') {
+                        $content = 'Đã gửi tệp tin mới';
+                    } else {
+                        $content = $lastMessage->content;
+                    }
+                }
+
                 // Gán dữ liệu tin nhắn cuối cùng vào object friend
                 $friend->last_message = $lastMessage ? [
-                    'content' => $lastMessage->content,
+                    'content' => $content,
                     'user_id' => $lastMessage->user_id,
                     'time' => $lastMessage->created_at->diffForHumans(),
+                    'created_at' => $lastMessage->created_at,
                 ] : null;
                 $friend->makeHidden(['pivot']);
 
@@ -63,6 +75,18 @@ class FriendController extends Controller
             return response()->json(['message' => 'Bạn không thể kết bạn với chính mình.'], 400);
         }
 
+        // Kiểm tra nếu đã có mối quan hệ (dù là bạn bè hay lời mời) thì báo lỗi
+        $existingFriendship = DB::table('friends')
+            ->where(function ($q) use ($user, $friendId) {
+                $q->where('user_id', $user->id)
+                    ->where('friend_id', $friendId);
+                $q->where('status', '!=', 1);
+            });
+
+        if ($existingFriendship->exists()) {
+            return response()->json(['message' => 'Bạn đã có mối quan hệ với người dùng này.'], 400);
+        }
+
         $user->friends()->syncWithoutDetaching([$friendId]);
 
         return response()->json([
@@ -86,10 +110,7 @@ class FriendController extends Controller
             ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar'])
             ->get();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $requests
-        ]);
+        return response()->json($requests);
     }
 
     public function acceptFriend(Request $request)

@@ -31,24 +31,24 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-matcha-lighter dark:bg-forest-lighter text-forest dark:text-mint p-4">
-      <div className="flex w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl bg-mint-light/90 dark:bg-forest/90 backdrop-blur-md border border-white/20">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 sm:p-8">
+      <div className="flex w-full max-w-4xl rounded-3xl overflow-hidden shadow-xl bg-card border border-border/50">
         {/* Left: Illustration */}
-        <div className="hidden lg:flex w-2/5 items-center justify-center bg-linear-to-br from-mint-lighter to-matcha/20 dark:from-forest-lighter/50 dark:to-matcha/10 p-12">
+        <div className="hidden lg:flex w-2/5 items-center justify-center bg-primary/5 dark:bg-primary/10 p-12">
           <div className="relative w-full h-full flex flex-col items-center justify-center text-center">
             <Image
               src="/file.svg"
               alt="Login Illustration"
-              width={280}
-              height={280}
-              className="object-contain animate-float drop-shadow-2xl"
+              width={260}
+              height={260}
+              className="object-contain animate-float drop-shadow-lg opacity-90 dark:opacity-80"
               priority
             />
-            <div className="mt-8 space-y-2">
-              <h3 className="text-forest dark:text-white font-bold text-xl">
+            <div className="mt-10 space-y-2">
+              <h3 className="text-foreground font-semibold text-lg tracking-tight">
                 Chào mừng trở lại!
               </h3>
-              <p className="text-sage dark:text-mint-light text-sm">
+              <p className="text-muted-foreground text-sm leading-relaxed">
                 Mojin Air đã sẵn sàng cho những cuộc trò chuyện mới.
               </p>
             </div>
@@ -56,51 +56,53 @@ const LoginPage = () => {
         </div>
 
         {/* Right: Login Form */}
-        <div className="w-full lg:w-3/5 p-10 flex flex-col justify-center">
+        <div className="w-full lg:w-3/5 p-8 sm:p-12 flex flex-col justify-center bg-card">
           <div className="mb-8">
-            <p className="text-xl font-bold text-matcha dark:text-mint tracking-wider uppercase">
+            <p className="text-sm font-semibold text-primary tracking-widest uppercase mb-2">
               Mojin Air
             </p>
-            <h1 className="text-3xl font-extrabold mt-2 text-forest dark:text-white">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Đăng nhập
             </h1>
-            <p className="text-sm text-sage dark:text-mint-light mt-1">
+            <p className="text-sm text-muted-foreground mt-2">
               Nhập thông tin của bác để kết nối với chiến hữu.
             </p>
           </div>
 
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-6"
+            className="flex flex-col gap-5"
           >
             <Field>
-              <FieldLabel className="text-forest dark:text-mint font-semibold">
-                Tài khoản:
+              <FieldLabel className="text-foreground font-medium text-sm">
+                Tài khoản
               </FieldLabel>
               <Input
                 {...register("login")}
                 type="text"
                 disabled={loading}
-                placeholder="Email hoặc Username của bạn"
-                className={`bg-white/50 dark:bg-forest-lighter/30 h-12 focus:border-matcha ${
-                  errors.login ? "border-red-500" : "border-mint/50"
+                placeholder="Email hoặc Username"
+                className={`h-11 bg-background/50 focus-visible:ring-primary ${
+                  errors.login
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : "border-input"
                 }`}
               />
               {errors.login && (
-                <p className="text-red-500 text-xs mt-1 font-medium">
+                <p className="text-destructive text-xs mt-1.5 font-medium">
                   {errors.login.message}
                 </p>
               )}
             </Field>
 
             <Field>
-              <div className="flex justify-between items-center mb-1">
-                <FieldLabel className="text-forest dark:text-mint font-semibold mb-0">
-                  Mật khẩu:
+              <div className="flex justify-between items-center mb-1.5">
+                <FieldLabel className="text-foreground font-medium text-sm mb-0">
+                  Mật khẩu
                 </FieldLabel>
                 <a
                   href="#"
-                  className="text-xs text-matcha hover:text-forest-dark dark:hover:text-white transition-colors"
+                  className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
                 >
                   Quên mật khẩu?
                 </a>
@@ -110,12 +112,14 @@ const LoginPage = () => {
                 type="password"
                 disabled={loading}
                 placeholder="••••••••"
-                className={`bg-white/50 dark:bg-forest-lighter/30 h-12 focus:border-matcha ${
-                  errors.password ? "border-red-500" : "border-mint/50"
+                className={`h-11 bg-background/50 focus-visible:ring-primary ${
+                  errors.password
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : "border-input"
                 }`}
               />
               {errors.password && (
-                <p className="text-red-500 text-xs mt-1 font-medium">
+                <p className="text-destructive text-xs mt-1.5 font-medium">
                   {errors.password.message}
                 </p>
               )}
@@ -124,30 +128,30 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`mt-2 bg-linear-to-r from-matcha via-forest to-forest-dark text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 text-lg ${
+              className={`mt-4 bg-primary text-primary-foreground font-medium py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all text-base ${
                 loading
                   ? "opacity-70 cursor-not-allowed"
-                  : "hover:scale-[1.01] cursor-pointer"
+                  : "hover:bg-primary/90 active:scale-[0.98] cursor-pointer"
               }`}
             >
               {loading ? (
-                <span className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin"></span>
               ) : (
-                "🚀 Vào ngay"
+                "Vào ngay"
               )}
             </button>
           </form>
 
-          <div className="mt-10 text-center border-t border-mint/20 pt-6">
-            <span className="text-sm text-sage dark:text-mint-light">
+          <div className="mt-8 text-center pt-6">
+            <span className="text-sm text-muted-foreground border-t border-border/50 pt-6 px-4">
               Bác chưa có tài khoản à?{" "}
+              <Link
+                href="/register"
+                className="font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                Tạo tài khoản mới
+              </Link>
             </span>
-            <Link
-              href="/register"
-              className="text-sm font-bold text-matcha dark:text-mint hover:text-forest transition-colors underline underline-offset-4"
-            >
-              Tạo tài khoản mới
-            </Link>
           </div>
         </div>
       </div>

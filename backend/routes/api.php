@@ -54,11 +54,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Chức năng Nhắn tin (Chat) ---
     // Lấy danh sách các cuộc trò chuyện (Hộp thư đến)
-    Route::get('/conversations', [ConversationController::class, 'getConversations']);
+    Route::prefix('conversations')->group(function () {
+        // Lấy danh sách cuộc hội thoại
+        Route::get('/', [ConversationController::class, 'getConversations']);
+
+        // Tạo nhóm trò chuyện mới
+        Route::post('/', [ConversationController::class, 'createConversations']);
+    });
+
 
     Route::prefix('messages')->group(function () {
         // Lấy danh sách tin nhắn với 1 người bạn cụ thể (nhập ID của bạn bè)
-        Route::get('/{friendId}', [MessageController::class, 'getMessageWithFriend']);
+        Route::get('/{friendId}', [MessageController::class, 'getMessages']);
 
         // Gửi tin nhắn mới
         Route::post('/', [MessageController::class, 'sendMessage']);

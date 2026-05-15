@@ -15,4 +15,8 @@ export interface IConversationState {
   error: string | null;
 
   fetchConversations: () => Promise<void>;
+  createConversation: (
+    label: string,
+    participantIds: number[],
+  ) => Promise<IConversation>;
 }

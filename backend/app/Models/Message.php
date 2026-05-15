@@ -11,6 +11,7 @@ class Message extends Model
     protected $fillable = [
         'conversation_id',
         'user_id',
+        'parent_id',
         'content',
         'type',
         'deleted_by_ids', // Add thêm cái này
@@ -32,5 +33,17 @@ class Message extends Model
     public function conversation()
     {
         return $this->belongsTo(Conversation::class);
+    }
+
+    // Tin nhắn gốc mà tin nhắn hiện tại đang trả lời
+    public function parent()
+    {
+        return $this->belongsTo(Message::class, 'parent_id');
+    }
+
+    // Danh sách các tin nhắn đang trả lời tin nhắn này (nếu cần dùng)
+    public function replies()
+    {
+        return $this->hasMany(Message::class, 'parent_id');
     }
 }
