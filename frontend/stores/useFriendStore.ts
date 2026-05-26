@@ -23,9 +23,19 @@ export const useFriendStore = create<IFriendState>()(
       hasMore: false, // Khởi tạo ban đầu là false
 
       selectedFriend: null, // Khởi tạo selectedFriend là null
+
+      /**
+       * Sets the selected friend in the store.
+       * @param {IFriend | null} friend - The friend to select, or null to clear the selection.
+       */
       setSelectedFriend: (friend: IFriend | null) =>
         set({ selectedFriend: friend }), // Hàm để cập nhật selectedFriend
 
+      /**
+       * Fetches the current user's friends list.
+       * Sets loading state to true while fetching, updates the friends list on success,
+       * and sets an error message on failure.
+       */
       getFriends: async () => {
         set({ loading: true, error: null });
         try {
@@ -40,6 +50,12 @@ export const useFriendStore = create<IFriendState>()(
         }
       },
 
+      /**
+       * Searches for friends based on a query string and page number.
+       * Appends results to existing ones if page > 1, otherwise resets results.
+       * @param {string} query - The search string to look up friends.
+       * @param {number} [page=1] - The page number of the search results to fetch.
+       */
       searchFriends: async (query: string, page: number = 1) => {
         set({ loading: true, error: null });
         try {
@@ -62,6 +78,10 @@ export const useFriendStore = create<IFriendState>()(
         }
       },
 
+      /**
+       * Sends a friend request to a user by their ID.
+       * @param {number} friendId - The ID of the user to add as a friend.
+       */
       addFriend: async (friendId: number) => {
         try {
           await addFriend(friendId);
@@ -75,6 +95,11 @@ export const useFriendStore = create<IFriendState>()(
         }
       },
 
+      /**
+       * Fetches pending friend requests sent to the current user.
+       * Sets loadingRequests to true while fetching, updates friendRequests list on success,
+       * and sets an error message on failure.
+       */
       fetchFriendRequests: async () => {
         set({ loadingRequests: true, error: null });
         try {
@@ -89,6 +114,10 @@ export const useFriendStore = create<IFriendState>()(
         }
       },
 
+      /**
+       * Accepts a friend request from a user.
+       * @param {number} friendId - The ID of the user whose friend request is being accepted.
+       */
       acceptFriendRequest: async (friendId: number) => {
         try {
           await acceptFriend(friendId);
@@ -101,6 +130,10 @@ export const useFriendStore = create<IFriendState>()(
         }
       },
 
+      /**
+       * Rejects a friend request from a user.
+       * @param {number} friendId - The ID of the user whose friend request is being rejected.
+       */
       rejectFriendRequest: async (friendId: number) => {
         try {
           await rejectFriend(friendId);
