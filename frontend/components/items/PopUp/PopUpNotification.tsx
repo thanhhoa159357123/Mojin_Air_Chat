@@ -1,23 +1,21 @@
-import { IFriend } from "@/types/friend";
+import { useFriendStore } from "@/stores/useFriendStore";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 
 interface IPopUpNotification {
   onCloseNotification: () => void;
-  friendRequests: IFriend[];
-  loadingRequests: boolean;
   acceptFriendRequest: (friendId: number) => Promise<void>;
   rejectFriendRequest: (friendId: number) => Promise<void>;
 }
 
 const PopUpNotification = ({
   onCloseNotification,
-  friendRequests,
-  loadingRequests,
   acceptFriendRequest,
   rejectFriendRequest,
 }: IPopUpNotification) => {
+  const friendRequests = useFriendStore((state) => state.friendRequests);
+  const loadingRequests = useFriendStore((state) => state.loadingRequests);
   return (
     <>
       <motion.div
@@ -74,11 +72,11 @@ const PopUpNotification = ({
                   </div>
                 </div>
 
-                <div
-                  onClick={() => rejectFriendRequest(user.id)}
-                  className="flex items-center gap-2 mt-4 pt-2"
-                >
-                  <button className="flex-1 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-secondary rounded-lg hover:bg-accent transition-all duration-200 cursor-pointer">
+                <div className="flex items-center gap-2 mt-4 pt-2">
+                  <button
+                    onClick={() => rejectFriendRequest(user.id)}
+                    className="flex-1 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-secondary rounded-lg hover:bg-accent transition-all duration-200 cursor-pointer"
+                  >
                     Từ chối
                   </button>
                   <button

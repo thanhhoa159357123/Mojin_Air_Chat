@@ -11,7 +11,9 @@ class Conversation extends Model
     // Một cuộc hội thoại có nhiều người tham gia
     public function participants()
     {
-        return $this->belongsToMany(User::class, 'conversation_participants')->withTimestamps();
+        return $this->belongsToMany(User::class, 'participants')
+            ->withPivot(['last_read_at'])
+            ->withTimestamps();
     }
 
     // Một cuộc hội thoại có nhiều tin nhắn

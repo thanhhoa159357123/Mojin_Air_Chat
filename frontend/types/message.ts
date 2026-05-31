@@ -12,21 +12,32 @@ export interface IMessage {
     last_name: string;
     avatar: string | null;
   };
+  conversation_id: number;
 }
 
 export interface IChatState {
   messages: IMessage[]; // Chỉ cần quản lý mảng tin nhắn
   loading: boolean;
+  loadingMore: boolean;
+  page: number;
   error: string | null;
+  hasMore: boolean;
 
-  fetchMessages: (friendId: number, type: "private" | "group") => Promise<void>;
+  typingUser: string | null;
+
+  fetchMessages: (
+    friendId: number,
+    type: "private" | "group",
+    page?: number,
+    byFriend?: boolean,
+  ) => Promise<void>;
   sendMessage: (
     id: number,
-    type: "private" | "group", // <--- Thêm cái này
+    type: "private" | "group",
     content: string,
     parent_id?: number | null,
     msgType?: string,
-  ) => Promise<void>;
+  ) => Promise<IMessage>;
   deleteMessage: (messageId: number, friendId: number) => Promise<void>;
   deleteAllMessages: (friendId: number) => Promise<void>;
 }

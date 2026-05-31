@@ -61,28 +61,8 @@ const RegisterPage = () => {
                   Họ <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Input
-                  {...register("first_name")}
-                  placeholder="Nguyễn"
-                  disabled={loading}
-                  className={`h-11 bg-background/50 focus-visible:ring-primary ${
-                    errors.first_name
-                      ? "border-destructive focus-visible:ring-destructive"
-                      : "border-input"
-                  }`}
-                />
-                {errors.first_name && (
-                  <p className="text-destructive text-xs mt-1.5 font-medium">
-                    {errors.first_name.message}
-                  </p>
-                )}
-              </Field>
-              <Field>
-                <FieldLabel className="text-foreground font-medium text-sm">
-                  Tên <span className="text-destructive">*</span>
-                </FieldLabel>
-                <Input
                   {...register("last_name")}
-                  placeholder="Văn A"
+                  placeholder="Nguyễn"
                   disabled={loading}
                   className={`h-11 bg-background/50 focus-visible:ring-primary ${
                     errors.last_name
@@ -93,6 +73,26 @@ const RegisterPage = () => {
                 {errors.last_name && (
                   <p className="text-destructive text-xs mt-1.5 font-medium">
                     {errors.last_name.message}
+                  </p>
+                )}
+              </Field>
+              <Field>
+                <FieldLabel className="text-foreground font-medium text-sm">
+                  Tên <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  {...register("first_name")}
+                  placeholder="Văn A"
+                  disabled={loading}
+                  className={`h-11 bg-background/50 focus-visible:ring-primary ${
+                    errors.first_name
+                      ? "border-destructive focus-visible:ring-destructive"
+                      : "border-input"
+                  }`}
+                />
+                {errors.first_name && (
+                  <p className="text-destructive text-xs mt-1.5 font-medium">
+                    {errors.first_name.message}
                   </p>
                 )}
               </Field>

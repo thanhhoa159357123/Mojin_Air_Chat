@@ -27,6 +27,8 @@ class AuthController extends Controller
         // Tạo user mới
         $user = User::create($validated);
 
+        Log::info("User mới đã được tạo: ", ['user_id' => $user->id, 'email' => $user->email]);
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         Log::info("Token đã được tạo cho user: ", ['user_id' => $user->id, 'token' => $token]);
@@ -35,6 +37,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'message' => 'Đăng ký thành công! Mời bạn vào phòng chat để kết nối với mọi người.',
             'user' => $user,
         ], 201);
     }
@@ -62,6 +65,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'message' => 'Đăng nhập thành công!',
             'user' => $user,
         ], 200);
     }
@@ -71,7 +75,7 @@ class AuthController extends Controller
         // Xóa token hiện tại của user
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Đã đăng xuất, Token đã bị hủy!']);
+        return response()->json(['message' => 'Đăng xuất thành công! Hẹn gặp lại bạn trong phòng chat!'], 200);
     }
 
     public function updateInformation(Request $request)
@@ -99,4 +103,5 @@ class AuthController extends Controller
             'user'    => $user
         ]);
     }
+    // Đã gửi bức ảnh mới
 }

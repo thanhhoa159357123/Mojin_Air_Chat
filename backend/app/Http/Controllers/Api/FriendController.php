@@ -2,61 +2,89 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\FriendRequestAccepted;
+use App\Events\FriendRequestSent;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ChatFriendSearchResource;
+use App\Http\Resources\FriendRequestResource;
+use App\Http\Resources\FriendResource;
+use App\Http\Resources\UserSearchResource;
 use App\Models\Message;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class FriendController extends Controller
 {
+    const STATUS_PENDING = 0;
+    const STATUS_ACCEPTED = 1;
+    const STATUS_BLOCKED = 2;
 
     public function getFriends(Request $request)
     {
         $user = $request->user();
+
         $friends = $user->friends()
-            ->wherePivot('status', 1)
+            ->wherePivot('status', self::STATUS_ACCEPTED)
             ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar', 'users.status'])
-            ->get()
-            ->map(function ($friend) use ($user) {
-                // Tìm tin nhắn cuối cùng giữa mình và người bạn này
-                $lastMessage = Message::whereHas('conversation', function ($query) use ($user, $friend) {
-                    $query->where('type', 'private')
-                        // Chú ý: Ở đây dùng id vì đang ở trong query của participants (User)
-                        ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
-                        ->whereHas('participants', fn($p) => $p->where('users.id', $friend->id));
-                })
+            ->addSelect([
+                'last_msg_content' => Message::select('content')
+                    ->whereHas('conversation', function ($query) use ($user) {
+                        $query->where('type', 'private')
+                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
+                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
+                    })
                     ->where(function ($query) use ($user) {
                         $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
                             ->orWhereNull('deleted_by_ids');
                     })
                     ->orderBy('created_at', 'desc')
-                    ->first();
+                    ->limit(1),
 
-                $content = '';
-                if ($lastMessage) {
-                    if ($lastMessage->type === 'image') {
-                        $content = 'Đã gửi hình ảnh mới';
-                    } else if ($lastMessage->type === 'file') {
-                        $content = 'Đã gửi tệp tin mới';
-                    } else {
-                        $content = $lastMessage->content;
-                    }
-                }
+                'last_msg_type' => Message::select('type')
+                    ->whereHas('conversation', function ($query) use ($user) {
+                        $query->where('type', 'private')
+                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
+                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
+                    })
+                    ->where(function ($query) use ($user) {
+                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
+                            ->orWhereNull('deleted_by_ids');
+                    })
+                    ->orderBy('created_at', 'desc')
+                    ->limit(1),
 
-                // Gán dữ liệu tin nhắn cuối cùng vào object friend
-                $friend->last_message = $lastMessage ? [
-                    'content' => $content,
-                    'user_id' => $lastMessage->user_id,
-                    'time' => $lastMessage->created_at->diffForHumans(),
-                    'created_at' => $lastMessage->created_at,
-                ] : null;
-                $friend->makeHidden(['pivot']);
+                'last_msg_user_id' => Message::select('user_id')
+                    ->whereHas('conversation', function ($query) use ($user) {
+                        $query->where('type', 'private')
+                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
+                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
+                    })
+                    ->where(function ($query) use ($user) {
+                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
+                            ->orWhereNull('deleted_by_ids');
+                    })
+                    ->orderBy('created_at', 'desc')
+                    ->limit(1),
 
-                return $friend;
-            });
+                'last_msg_created_at' => Message::select('created_at')
+                    ->whereHas('conversation', function ($query) use ($user) {
+                        $query->where('type', 'private')
+                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
+                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
+                    })
+                    ->where(function ($query) use ($user) {
+                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
+                            ->orWhereNull('deleted_by_ids');
+                    })
+                    ->orderBy('created_at', 'desc')
+                    ->limit(1)
+            ])
+            ->get();
 
-        return response()->json($friends);
+        // Chỉ việc ném collection vào Resource và trả về JSON chuẩn
+        return FriendResource::collection($friends);
     }
 
     /**
@@ -64,11 +92,12 @@ class FriendController extends Controller
      */
     public function addFriend(Request $request)
     {
+        $user = $request->user();
+
         $request->validate([
             'friend_id' => 'required|exists:users,id'
         ]);
 
-        $user = $request->user();
         $friendId = $request->friend_id;
 
         if ($user->id == $friendId) {
@@ -76,22 +105,44 @@ class FriendController extends Controller
         }
 
         // Kiểm tra nếu đã có mối quan hệ (dù là bạn bè hay lời mời) thì báo lỗi
-        $existingFriendship = DB::table('friends')
+        $friendship = DB::table('friends')
             ->where(function ($q) use ($user, $friendId) {
                 $q->where('user_id', $user->id)
                     ->where('friend_id', $friendId);
-                $q->where('status', '!=', 1);
-            });
+            })->orWhere(function ($q) use ($user, $friendId) {
+                $q->where('user_id', $friendId)
+                    ->where('friend_id', $user->id);
+            })->first();
 
-        if ($existingFriendship->exists()) {
-            return response()->json(['message' => 'Bạn đã có mối quan hệ với người dùng này.'], 400);
+
+        if ($friendship) {
+            // Trường hợp 1: Đã là bạn bè thật sự rồi
+            if ($friendship->status == self::STATUS_ACCEPTED) {
+                return response()->json(['message' => 'Hai bạn đã là bạn bè của nhau rồi.'], 400);
+            }
+
+            // Trường hợp 2: Đang trong trạng thái chờ (Pending)
+            if ($friendship->status == self::STATUS_PENDING) {
+                if ($friendship->user_id == $user->id) {
+                    return response()->json(['message' => 'Bạn đã gửi lời mời trước đó, vui lòng chờ phản hồi.'], 400);
+                } else {
+                    return response()->json(['message' => 'Người này đã gửi lời mời cho bạn rồi, vui lòng kiểm tra hộp thư chờ.'], 400);
+                }
+            }
+
+            // Trường hợp 3: Blocked
+            if ($friendship->status == self::STATUS_BLOCKED) {
+                return response()->json(['message' => 'Không thể gửi lời mời kết bạn.'], 400);
+            }
         }
 
         $user->friends()->syncWithoutDetaching([$friendId]);
 
+        broadcast(new FriendRequestSent($user, $friendId));
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Kết bạn thành công! Đợi nó lên sóng là chat phê luôn.',
+            'message' => 'Kết bạn thành công! Hãy bắt đầu cuộc trò chuyện ngay bây giờ.',
             'data' => [
                 'friend_id' => $friendId
             ]
@@ -110,7 +161,7 @@ class FriendController extends Controller
             ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar'])
             ->get();
 
-        return response()->json($requests);
+        return FriendRequestResource::collection($requests);
     }
 
     public function acceptFriend(Request $request)
@@ -131,26 +182,41 @@ class FriendController extends Controller
         $updated = DB::table('friends')
             ->where('user_id', $friendId)
             ->where('friend_id', $user->id)
-            ->where('status', '!=', 1)
-            ->update(['status' => 1]);
+            ->where('status', '!=', self::STATUS_ACCEPTED)
+            ->update(['status' => self::STATUS_ACCEPTED]);
 
         // 2. Chốt chặn an toàn: Báo lỗi nếu không có lời mời hoặc đã accept rồi
         if (!$updated) {
             return response()->json([
-                'message' => 'Kèo này toang! Lời mời không tồn tại hoặc bác đã accept khứa này rồi.'
+                'message' => 'Lời mời không tồn tại hoặc bạn đã chấp nhận lời mời này!'
             ], 404);
         }
 
-        // 3. Tuyệt chiêu Architect (Đối xứng):
-        // Phải add ngược lại thằng kia vào danh sách của mình, set luôn status = 1.
-        // Như vậy lúc bác query danh sách bạn bè nó mới ra đủ cả 2 chiều, FE nó mới sướng.
         $user->friends()->syncWithoutDetaching([
-            $friendId => ['status' => 1]
+            $friendId => ['status' => self::STATUS_ACCEPTED]
         ]);
+
+        // 💡 ĐÓNG GÓI DATA CHUẨN ĐỂ BẮN QUA PUSHER
+        // Định dạng giống hệt với output của getFriends()
+        $accepterData = [
+            'id'                  => $user->id,
+            'first_name'          => $user->first_name,
+            'last_name'           => $user->last_name,
+            'username'            => $user->username,
+            'avatar'              => $user->avatar,
+            'status'              => self::STATUS_ACCEPTED,
+            'last_msg_content'    => null,
+            'last_msg_type'       => null,
+            'last_msg_user_id'    => null,
+            'last_msg_created_at' => null,
+        ];
+
+        // 🚀 Bắn qua Pusher với 3 tham số
+        broadcast(new FriendRequestAccepted($user->id, $friendId, $accepterData));
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Bạn đã chấp nhận lời mời kết bạn! Giờ thì vào chat thôi.',
+            'message' => 'Bạn đã chấp nhận lời mời kết bạn! Giờ hai người đã là bằng hữu.',
             'data' => [
                 'friend_id' => $friendId
             ]
@@ -170,11 +236,10 @@ class FriendController extends Controller
             return response()->json(['message' => 'Bạn không thể từ chối kết bạn với chính mình.'], 400);
         }
 
-        // Xóa mối quan hệ bạn bè (dù là lời mời hay đã chấp nhận)
         $deleted = DB::table('friends')
             ->where('user_id', $friendId)
             ->where('friend_id', $user->id)
-            ->where('status', 0) // Chỉ xóa nếu có lời mời hoặc đã là bạn bè
+            ->where('status', self::STATUS_PENDING)
             ->delete();
 
         if (!$deleted) {
@@ -195,23 +260,43 @@ class FriendController extends Controller
         ]);
 
         $user = $request->user();
-        $searchTerm = $request->query('query');
+        $searchTerm = $request->input('query');
 
-        // Đổi ->get() thành ->simplePaginate()
         $results = User::query()
+            // 1. Chỉ lấy những trường cần thiết của bảng users ngay từ đầu
+            ->select(['id', 'first_name', 'last_name', 'username', 'avatar'])
+
+            // 2. Loại chính mình ra khỏi danh sách người lạ
+            ->where('id', '!=', $user->id)
+
+            // 3. Tìm kiếm theo tên hoặc username
             ->where(function ($q) use ($searchTerm) {
                 $q->where('first_name', 'like', "%{$searchTerm}%")
-                    ->orWhere('last_name', 'like', "%{$searchTerm}%")
-                    ->orWhere('username', 'like', "%{$searchTerm}%");
+                    ->orWhere('last_name', 'like', "%{$searchTerm}%");
             })
-            ->where('id', '!=', $user->id)
-            ->select(['id', 'first_name', 'last_name', 'username', 'avatar'])
-            ->simplePaginate(15); // Lấy 15 người một trang cho nó vừa mâm
+
+            // 4. Sửa lại Subquery chuẩn: Bọc group logic orWhere lại cho chuẩn SQL
+            ->addSelect([
+                'pivot_status' => DB::table('friends')
+                    ->select('status')
+                    ->where(function ($q) use ($user) {
+                        // Phải bọc đống logic 2 chiều này vào trong 1 cái group functions
+                        $q->where(function ($sub) use ($user) {
+                            $sub->where('user_id', $user->id)
+                                ->whereColumn('friend_id', 'users.id');
+                        })->orWhere(function ($sub) use ($user) {
+                            $sub->where('friend_id', $user->id)
+                                ->whereColumn('user_id', 'users.id');
+                        });
+                    })
+                    ->limit(1)
+            ])
+            ->simplePaginate(15);
 
         return response()->json([
-            'status' => 'success',
-            'data' => $results->items(), // Giờ thì hàm items() chạy vi vu
-            'hasMore' => $results->hasMorePages(), // FE cũng check được còn data để load không
+            'status'  => 'success',
+            'data'    => UserSearchResource::collection($results->items()),
+            'hasMore' => $results->hasMorePages(),
         ]);
     }
 
@@ -222,23 +307,23 @@ class FriendController extends Controller
         ]);
 
         $user = $request->user();
-        $searchTerm = $request->query('query');
+        $searchTerm = $request->input('query');
 
-        // Đổi ->get() thành ->simplePaginate()
-        $results = User::query()
+        $results = $user->friends()
+            ->wherePivot('status', self::STATUS_ACCEPTED)
             ->where(function ($q) use ($searchTerm) {
-                $q->where('first_name', 'like', "%{$searchTerm}%")
-                    ->orWhere('last_name', 'like', "%{$searchTerm}%")
-                    ->orWhere('username', 'like', "%{$searchTerm}%");
+                // Thêm tiền tố 'users.' để triệt tiêu lỗi Ambiguous Column của SQL
+                $q->where('users.first_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('users.last_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('users.username', 'like', "%{$searchTerm}%");
             })
-            ->where('id', '!=', $user->id)
-            ->select(['id', 'first_name', 'last_name', 'username', 'avatar'])
-            ->simplePaginate(15); // Lấy 15 người một trang cho nó vừa mâm
+            ->select(['users.id', 'users.first_name', 'users.last_name', 'users.username', 'users.avatar'])
+            ->simplePaginate(15);
 
         return response()->json([
-            'status' => 'success',
-            'data' => $results->items(), // Giờ thì hàm items() chạy vi vu
-            'hasMore' => $results->hasMorePages(), // FE cũng check được còn data để load không
+            'status'  => 'success',
+            'data'    => ChatFriendSearchResource::collection($results->items()),
+            'hasMore' => $results->hasMorePages(),
         ]);
     }
 }

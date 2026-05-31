@@ -1,7 +1,7 @@
 import axiosClient from "@/lib/axios";
 import { IFriend } from "@/types/friend";
 
-export const getFriends = async (): Promise<IFriend[]> => {
+export const getFriends = async (): Promise<{ data: IFriend[] }> => {
   const response = await axiosClient.get("/friends");
   return response.data;
 };
@@ -25,7 +25,7 @@ export const addFriend = async (
   return response.data;
 };
 
-export const getFriendRequests = async (): Promise<IFriend[]> => {
+export const getFriendRequests = async (): Promise<{ data: IFriend[] }> => {
   const response = await axiosClient.get("/friends/requests");
   return response.data;
 };

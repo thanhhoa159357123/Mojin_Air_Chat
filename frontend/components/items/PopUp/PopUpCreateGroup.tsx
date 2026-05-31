@@ -1,5 +1,6 @@
 "use client";
 
+import { useConversationHook } from "@/hooks/useConversationHook";
 import { useFriendHook } from "@/hooks/useFriendHook";
 import { Check, Search, Users, X } from "lucide-react";
 import { motion } from "motion/react";
@@ -8,13 +9,12 @@ import { useState } from "react";
 
 interface PopUpCreateGroupProps {
   onClose: () => void;
-  onCreateConversation: (label: string, participantIds: number[]) => void; // Hàm để tạo cuộc trò chuyện mới sau khi chọn xong
 }
 
 const PopUpCreateGroup = ({
   onClose,
-  onCreateConversation,
 }: PopUpCreateGroupProps) => {
+  const { handleCreateConversation } = useConversationHook();
   const { friends } = useFriendHook();
   const [groupName, setGroupName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,7 +33,7 @@ const PopUpCreateGroup = ({
 
   const handleCreate = () => {
     const finalName = groupName.trim() || "Những kẻ mộng mơ";
-    onCreateConversation(finalName, selectedFriends);
+    handleCreateConversation(finalName, selectedFriends);
   };
 
   return (

@@ -1,3 +1,4 @@
+// types/auth.ts
 import { z } from "zod";
 
 export interface IUser {
@@ -51,8 +52,8 @@ export interface IAuthState {
 // Schema cho Đăng ký
 export const registerSchema = z
   .object({
-    first_name: z.string().min(1, "Họ không được để trống"),
-    last_name: z.string().min(1, "Tên không được để trống"),
+    first_name: z.string().trim().min(1, "Họ không được để trống"),
+    last_name: z.string().trim().min(1, "Tên không được để trống"),
     username: z
       .string()
       .min(3, "Username ít nhất 3 ký tự")

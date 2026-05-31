@@ -1,101 +1,222 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase"; // Nhớ import con hàng này
-import { compressImage } from "@/lib/utils"; // Hàm nén ảnh
-import { useFriendHook } from "@/hooks/useFriendHook";
-import { IMessage } from "@/types/chat";
+import { compressImage } from "@/lib/utils";
+import { IMessage } from "@/types/message";
 import { useChatHook } from "@/hooks/useChatHook";
+import { useConversationStore } from "@/stores/useConversationStore"; // 💡 RƯỚC VỊ CỨU TINH MỚI VÀO ĐÂY
+
+export interface IAttachmentPreview {
+  id: string;
+  file: File;
+  previewUrl: string;
+  mode: "image" | "file";
+}
 
 export const useInputRefHook = () => {
-  const { selectedFriend } = useFriendHook();
-  const { handleSendMessage } = useChatHook(selectedFriend);
+  // 🌟 NGUỒN CHÂN LÝ: Lấy trực tiếp cuộc hội thoại đang select từ Store chung
+  const selectConversation = useConversationStore(
+    (state) => state.selectConversation,
+  );
+
+  // Đấu nối selectConversation xịn vào useChatHook để lôi hàm gửi tin nhắn ra
+  const { handleSendMessage } = useChatHook(selectConversation);
+
+  // 💡 1. THÊM REF CHO TEXTAREA ĐỂ ĐIỀU KHIỂN CHIỀU CAO
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // THÊM STATE ĐỂ LƯU NỘI DUNG Ô NHẬP LIỆU
   const [inputValue, setInputValue] = useState("");
   const [replyingTo, setReplyingTo] = useState<IMessage | null>(null);
+  const [attachments, setAttachments] = useState<IAttachmentPreview[]>([]);
 
-  // Hàm xử lý khi bấm nút Gửi (hoặc bấm Enter)
-  const onSend = () => {
-    if (!inputValue.trim() || !selectedFriend) return;
+  // 🌟 HÀM UPLOAD QUA CLOUDINARY (GIỮ NGUYÊN HOẠT ĐỘNG HOÀN HẢO)
+  const uploadSingleFileToCloudinary = async (item: IAttachmentPreview) => {
+    let fileToUpload = item.file;
 
-    handleSendMessage(selectedFriend, inputValue, replyingTo?.id || null); // Gọi hàm gửi tin nhắn
-    setInputValue(""); // Xóa trắng ô input sau khi gửi
-    setReplyingTo(null); // Reset trạng thái reply
-  };
+    if (item.mode === "image") {
+      try {
+        fileToUpload = await compressImage(item.file, {
+          maxWidth: 1920,
+          quality: 0.7,
+        });
+      } catch (e) {
+        console.error("Nén ảnh lỗi, giữ nguyên ảnh gốc", e);
+      }
+    }
 
-  // Hàm để xử lý khi người dùng ấn phím trên ô input
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      onSend();
+    const formData = new FormData();
+    formData.append("file", fileToUpload);
+
+    const CLOUD_NAME = "dcds77ifp";
+    const UPLOAD_PRESET = "Mojin_Air_Chat";
+
+    formData.append("upload_preset", UPLOAD_PRESET);
+    formData.append("folder", "mojin_air/chat");
+
+    const resourceType = item.mode === "image" ? "image" : "raw";
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      if (!response.ok) throw new Error("Cloudinary từ chối nhận hàng!");
+
+      const data = await response.json();
+      return data.secure_url;
+    } catch (err) {
+      console.error(`Lỗi upload file ${item.file.name}:`, err);
+      return item.previewUrl;
     }
   };
 
-  // HÀM XỬ LÝ UPLOAD (TRÍ MẠNG ĐÂY BÁC)
-  const handleFileChange = async (
+  // 🌟 NÚT BẤM CHỐT HẠ: Khi nhấn Gửi hoặc gõ Enter
+  const onSend = async () => {
+    const trimmedText = inputValue.trim();
+    const hasText = trimmedText.length > 0;
+    const hasAttachments = attachments.length > 0;
+
+    // 💡 SỬA CHỖ NÀY: Check theo selectConversation mới tinh
+    if ((!hasText && !hasAttachments) || !selectConversation) return;
+
+    const textToSend = trimmedText;
+    const attachmentsToSend = [...attachments];
+
+    setInputValue("");
+    setAttachments([]);
+    setReplyingTo(null);
+
+    // 💡 2. GỬI XONG THÌ PHẢI ÉP CHIỀU CAO TEXTAREA VỀ LẠI BAN ĐẦU
+    if (textAreaRef.current) {
+      textAreaRef.current.style.height = "auto";
+    }
+
+    // 🚀 NHÁNH 1: Nếu CHỈ CÓ TEXT thuần túy
+    if (hasText && !hasAttachments) {
+      try {
+        await handleSendMessage(textToSend, replyingTo?.id || null, "text");
+      } catch (err) {
+        console.error("Gửi tin nhắn văn bản lỗi:", err);
+      }
+      return;
+    }
+
+    // 🚀 NHÁNH 2: Có đính kèm file (Tin nhắn MIXED vạn năng)
+    try {
+      toast.loading(`Đang xử lý gửi ${attachmentsToSend.length} tệp tin...`);
+
+      const uploadPromises = attachmentsToSend.map((item) =>
+        uploadSingleFileToCloudinary(item),
+      );
+      const uploadedUrls = await Promise.all(uploadPromises);
+
+      const imageUrls: string[] = [];
+      const fileUrls: string[] = [];
+
+      attachmentsToSend.forEach((item, index) => {
+        if (item.mode === "image") {
+          imageUrls.push(uploadedUrls[index]);
+        } else {
+          fileUrls.push(uploadedUrls[index]);
+        }
+      });
+
+      const mixedPayload = JSON.stringify({
+        text: textToSend,
+        images: imageUrls,
+        files: fileUrls,
+      });
+
+      // Bắn thẳng sang API Laravel với type là 'mixed'
+      await handleSendMessage(mixedPayload, replyingTo?.id || null, "mixed");
+
+      toast.dismiss();
+      toast.success("Đã gửi tin nhắn hỗn hợp thành công!");
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Gửi tin nhắn hỗn hợp thất bại.");
+      console.error("Lỗi gửi tin hỗn hợp:", error);
+    }
+  };
+
+  // 💡 3. SỬA HÀM LẮNG NGHE BÀN PHÍM
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Nếu bấm Enter MÀ KHÔNG GIỮ phím Shift -> Gửi tin nhắn
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // Chặn việc tự động xuống dòng
+      onSend();
+    }
+    // Nếu bấm Shift + Enter -> Trình duyệt tự hiểu là xuống dòng, mình không cần code gì thêm
+  };
+
+  const addAttachmentToQueue = (file: File, mode: "image" | "file") => {
+    const newAttachment: IAttachmentPreview = {
+      id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      mode,
+    };
+    setAttachments((prev) => [...prev, newAttachment]);
+  };
+
+  const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     mode: "image" | "file",
   ) => {
-    let file = e.target.files?.[0];
-    if (!file || !selectedFriend) return;
+    const files = e.target.files;
+    if (!files) return;
 
-    try {
-      if (mode === "image") {
-        toast.loading("Đang nén ảnh để gửi nhanh hơn...");
-        file = await compressImage(file, { maxWidth: 1920, quality: 0.7 });
-        toast.dismiss();
-      }
-
-      const bucket = mode === "image" ? "image" : "files"; // Đảm bảo bucket là file (đổi lại files nếu bác lấy bucket gốc là files)
-
-      // Bỏ khoảng trắng để URL k bị dính %20 dài ngoằng, dùng ___ làm mốc tách tên gốc
-      const fileName = `${Date.now()}___${file.name.replace(/\s+/g, "_")}`;
-
-      // Ảnh thì cho thẳng vào folder image_chat, file tài liệu thì để ngoài cùng của bucket file
-      const filePath = mode === "image" ? `image_chat/${fileName}` : fileName;
-
-      toast.loading(`Đang gửi ${mode === "image" ? "ảnh" : "tài liệu"}...`);
-
-      // 1. Phóng lên Supabase
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // 2. Lấy link Public
-      const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-
-      // 3. Báo cáo về Laravel thôi bác!
-      await handleSendMessage(
-        selectedFriend,
-        data.publicUrl,
-        replyingTo?.id,
-        mode,
-      );
-
-      toast.dismiss();
-      toast.success("Đã gửi thành công!");
-    } catch (error) {
-      toast.dismiss();
-      toast.error("Toang rồi, upload thất bại!");
-      console.error(error);
-    } finally {
-      // Reset input để lần sau chọn lại file đó vẫn trigger
-      e.target.value = "";
+    for (let i = 0; i < files.length; i++) {
+      addAttachmentToQueue(files[i], mode);
     }
+    e.target.value = "";
+  };
+
+  // 💡 Đổi type HTMLInputElement -> HTMLTextAreaElement
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          addAttachmentToQueue(file, "image");
+        }
+      }
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((item) => item.id !== id);
+    });
   };
 
   return {
     inputValue,
     setInputValue,
     replyingTo,
+    attachments,
     handleSend: onSend,
     setReplyingTo,
     handleKeyDown,
     fileInputRef,
     imageInputRef,
     handleFileChange,
+    handlePaste,
+    removeAttachment,
+    textAreaRef,
   };
 };

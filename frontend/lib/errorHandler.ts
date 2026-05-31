@@ -1,27 +1,35 @@
 import { AxiosError } from "axios";
 
 /**
- * Trích xuất message lỗi từ error object do backend trả về.
- * @param error Error object có thể từ Axios hoặc Error thông dụng
- * @param defaultMessage Message mặc định khi không tìm thấy thông tin lỗi chi tiết
- * @returns Chuỗi string message lỗi
+ * Hàm trích xuất chuỗi báo lỗi từ Axios hoặc Error thông thường
+ * @param error Biến error nhận từ block catch (unknown)
+ * @param fallbackMessage Thông báo mặc định nếu không tìm thấy lỗi từ server
  */
 export const extractErrorMessage = (
   error: unknown,
-  defaultMessage: string = "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
-): string => {
-  if (!error) return defaultMessage;
+  fallbackMessage: string = "Đã có lỗi xảy ra!",
+) => {
+  // 1. Nếu là lỗi do Axios (bắn API)
+  if (error && typeof error === "object" && "isAxiosError" in error) {
+    const axiosError = error as AxiosError<{
+      message?: string;
+      error?: string;
+    }>;
 
-  // Xử lý lỗi trả về từ Axios
-  const axiosError = error as AxiosError<{ message?: string; errors?: any }>;
-  if (axiosError.response?.data?.message) {
-    return axiosError.response.data.message;
+    // Ưu tiên lấy message từ Laravel Resource/Controller trả về
+    return (
+      axiosError.response?.data?.message ||
+      axiosError.response?.data?.error ||
+      axiosError.message ||
+      fallbackMessage
+    );
   }
 
-  // Xử lý lỗi từ code thông thường
+  // 2. Nếu là lỗi Error thông thường (throw new Error)
   if (error instanceof Error) {
     return error.message;
   }
 
-  return defaultMessage;
+  // 3. Trường hợp bất khả kháng
+  return fallbackMessage;
 };

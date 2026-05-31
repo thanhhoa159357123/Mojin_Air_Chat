@@ -1,29 +1,38 @@
+import { IConversation } from "./conversation";
+
+// types/friend.ts
+export interface ILastMessage {
+  content: string;
+  time: string; // Chuỗi thân thiện đọc được từ diffForHumans() (e.g., "1 hour ago")
+  user_id: number; // ID người gửi tin nhắn cuối
+  created_at: string; // Chuỗi ISO 8601 từ backend gửi qua để FE quản lý thời gian chuẩn hơn
+}
+
 export interface IFriend {
   id: number;
   first_name: string;
   last_name: string;
   full_name: string;
   username: string;
-  last_message: {
-    content: string;
-    time: string;
-    user_id: number; // Để biết ai gửi tin nhắn cuối (mình hay bạn)
+  friendship_status: number | string; // Đồng bộ với users.status (hoặc pivot status) trả về từ Resource
+  avatar: string | null;
+  status: number | string | null; // Đồng bộ với users.status (hoặc pivot status) trả về từ Resource
+  last_message: ILastMessage | null; // Cần có | null vì nếu chưa bao giờ nhắn tin thì subquery nhả ra null
+  pivot?: {
+    last_read_at?: string | null;
   };
-  avatar: string | null; // Sửa avatarUrl -> avatar, và cho phép null
-  status?: "pending" | "accepted" | "rejected" | null; // Thêm ? vì API search hiện tại chưa nhét status vào
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface IFriendState {
   friends: IFriend[];
   searchResults: IFriend[];
-  friendRequests: IFriend[]; // Mảng này sẽ chứa các lời mời kết bạn đang chờ xử lý
+  friendRequests: IFriend[]; // Chứa các lời mời kết bạn đang chờ xử lý
   loading: boolean;
   loadingRequests: boolean; // Biến loading riêng cho việc fetch lời mời kết bạn
   error: string | null;
-  hasMore: boolean; // Phải có cái này để biết còn data không mà cuộn
-
-  selectedFriend: IFriend | null;
-  setSelectedFriend: (friend: IFriend | null) => void;
+  hasMore: boolean; // Để biết còn data không mà cuộn (Infinite Scroll)
 
   getFriends: () => Promise<void>;
   searchFriends: (query: string, page?: number) => Promise<void>;

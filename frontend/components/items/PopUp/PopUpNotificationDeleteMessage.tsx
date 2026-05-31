@@ -1,5 +1,3 @@
-import React from "react";
-
 interface PopUpNotificationDeleteMessageProps {
   onClose?: () => void;
   messageId?: number | null; // Thêm prop này để nhận ID tin nhắn cần xoá
@@ -11,7 +9,6 @@ const PopUpNotificationDeleteMessage = ({
   messageId,
   handleDeleteMessage,
 }: PopUpNotificationDeleteMessageProps) => {
-  console.log("mes", messageId);
   return (
     <div className="bg-card rounded-2xl p-6 w-150 shadow-xl flex flex-col gap-3 border border-border">
       {/* Header */}

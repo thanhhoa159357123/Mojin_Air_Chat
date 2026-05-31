@@ -1,53 +1,44 @@
 "use client";
 
 import ChatForm from "@/components/items/ChatForm/ChatForm";
-import ListFriend from "@/components/items/ListFriend/ListFriendAndGroup";
-import OptionDetail from "@/components/items/OptionDetail";
+import ListFriendAndGroup from "@/components/items/ListFriend/ListFriendAndGroup";
+import OptionDetail from "@/components/items/OptionDetail/OptionDetail";
 import PopUpAddfriend from "@/components/items/PopUp/PopUpAddfriend";
 import PopUpCreateGroup from "@/components/items/PopUp/PopUpCreateGroup";
 import PopUpNotification from "@/components/items/PopUp/PopUpNotification";
 import PopUpNotificationDeleteMessage from "@/components/items/PopUp/PopUpNotificationDeleteMessage";
 import PopUpSettingAccount from "@/components/items/PopUp/PopUpSettingAccount";
+import PopUpManageMember from "@/components/items/PopUp/PopUpManageMember";
 import Sidebar from "@/components/items/Sidebar";
-import { useAuthHook } from "@/hooks/useAuthHook";
 import { useChatHook } from "@/hooks/useChatHook";
-import { useConversationHook } from "@/hooks/useConversationHook";
 import { useFriendHook } from "@/hooks/useFriendHook";
 import { useFriendPolling } from "@/hooks/useFriendPolling";
-import { useChatPolling } from "@/hooks/useChatPolling";
 import { usePopUpManager } from "@/hooks/usePopUpManager";
-import { useFriendStore } from "@/stores/useFriendStore";
-import { ArrowLeft, MessageSquareIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
+import { useConversationStore } from "@/stores/useConversationStore";
+import NonConversation from "@/components/NonConversation";
+
 export default function Home() {
-  const selectedFriend = useFriendStore((state) => state.selectedFriend);
+  const selectConversation = useConversationStore(
+    (state) => state.selectConversation,
+  );
+
   useFriendPolling();
-  useChatPolling(selectedFriend);
-  const { handleCreateConversation } = useConversationHook();
-  const { user } = useAuthHook();
   const { isOpen, open, close } = usePopUpManager();
+
   const {
     handleAddFriend,
-
     handleAcceptFriendRequest,
     handleRejectFriendRequest,
 
     searchFriends,
-    searchResults,
-    friendRequests,
-    loading,
-    loadingRequests,
-    error,
-    hasMore,
   } = useFriendHook();
-  const {
-    messages,
-    handleSendMessage,
-    handleDeleteMessage,
-    handleAllDeleteMessages,
-  } = useChatHook(selectedFriend);
+
+  const { handleDeleteMessage, handleSendMessage, handleAllDeleteMessages } =
+    useChatHook(selectConversation);
+
   const [isOptionOpen, setIsOptionOpen] = useState(false);
   const [chatDeleteMessageId, setChatDeleteMessageId] = useState<number | null>(
     null,
@@ -56,6 +47,7 @@ export default function Home() {
     isVisibleNotificationDeleteMessage,
     setIsVisibleNotificationDeleteMessage,
   ] = useState(false);
+  const [isOpenMember, setIsOpenMember] = useState(false);
 
   return (
     <div className="w-full h-screen bg-background flex gap-4 px-4 py-3 overflow-hidden font-sans">
@@ -63,14 +55,13 @@ export default function Home() {
       <aside className="w-16 flex-none flex flex-col">
         <Sidebar
           onToggleNotification={() => open("noti")}
-          user={user}
           onToggleSetting={() => open("setting")}
         />
       </aside>
 
       {/* 2. List friend: Tỷ lệ 2.5, tối thiểu 320px để text không bị nghẹt */}
       <aside className="flex-[2.5] min-w-[320px] bg-secondary rounded-xl flex flex-col border border-border shadow-md overflow-hidden">
-        <ListFriend
+        <ListFriendAndGroup
           onToggleAddFriend={() => open("addFriend")}
           onToggleCreateGroup={() => open("createGroup")}
         />
@@ -78,68 +69,11 @@ export default function Home() {
 
       {/* 3. Chat Form: Tỷ lệ 5.5, chiếm phần lớn không gian màn hình */}
       <main className="flex-[5.5] min-w-112.5 bg-card rounded-xl flex flex-col border border-border shadow-md transition-all duration-300 overflow-hidden">
-        {!selectedFriend ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="flex-1 flex flex-col items-center justify-center gap-4 p-8"
-          >
-            {/* Icon trang trí */}
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", damping: 15 }}
-              className="relative"
-            >
-              <div className="size-20 rounded-full bg-secondary flex items-center justify-center">
-                <MessageSquareIcon className="size-10 text-muted-foreground" />
-              </div>
-              <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 1, 0.5],
-                }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="absolute -inset-2 rounded-full bg-primary/20 blur-xl -z-10"
-              />
-            </motion.div>
-
-            {/* Text */}
-            <div className="text-center space-y-2">
-              <motion.h3
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="text-lg font-semibold text-foreground"
-              >
-                Chưa có cuộc trò chuyện nào
-              </motion.h3>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="text-sm text-muted-foreground"
-              >
-                Chọn một bạn bè từ danh sách bên trái để bắt đầu chat
-              </motion.p>
-            </div>
-
-            {/* Gợi ý */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="mt-4 flex items-center gap-2 text-xs text-muted-foreground/70"
-            >
-              <ArrowLeft className="size-3 animate-pulse" />
-              <span>Chọn bạn bè bên trái</span>
-            </motion.div>
-          </motion.div>
+        {!selectConversation ? (
+          <NonConversation />
         ) : (
           <ChatForm
             onToggleOption={() => setIsOptionOpen(!isOptionOpen)}
-            messages={messages}
             setChatDeleteMessageId={setChatDeleteMessageId}
             handleSendMessage={handleSendMessage}
             setIsVisibleNotificationDeleteMessage={
@@ -159,8 +93,8 @@ export default function Home() {
       >
         <div className="w-full h-full">
           <OptionDetail
-            selectedFriend={selectedFriend}
             handleAllDeleteMessages={handleAllDeleteMessages}
+            setIsOpenMember={setIsOpenMember}
           />
         </div>
       </aside>
@@ -170,8 +104,6 @@ export default function Home() {
         {isOpen.noti && (
           <PopUpNotification
             onCloseNotification={() => close("noti")}
-            friendRequests={friendRequests}
-            loadingRequests={loadingRequests}
             acceptFriendRequest={handleAcceptFriendRequest}
             rejectFriendRequest={handleRejectFriendRequest}
           />
@@ -184,11 +116,7 @@ export default function Home() {
           <PopUpAddfriend
             addFriend={handleAddFriend}
             onCloseAddFriend={() => close("addFriend")}
-            searchResults={searchResults}
             searchFriends={searchFriends}
-            loading={loading}
-            error={error}
-            hasMore={hasMore}
           />
         )}
       </AnimatePresence>
@@ -225,13 +153,15 @@ export default function Home() {
 
       <AnimatePresence>
         {isOpen.createGroup && (
-          <PopUpCreateGroup
-            onClose={() => close("createGroup")}
-            onCreateConversation={handleCreateConversation}
-          />
+          <PopUpCreateGroup onClose={() => close("createGroup")} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOpenMember && (
+          <PopUpManageMember onClose={() => setIsOpenMember(false)} />
         )}
       </AnimatePresence>
     </div>
   );
 }
-

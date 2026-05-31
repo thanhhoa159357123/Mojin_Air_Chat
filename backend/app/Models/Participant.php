@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ConversationParticipant extends Model
 {
     // Báo cho Laravel biết chính xác tên bảng, đề phòng nó đoán sai
-    protected $table = 'conversation_participants';
+    protected $table = 'participants';
 
     // Cho phép thêm dữ liệu vào các cột này (Cực kỳ quan trọng để sau này dùng hàm create)
     protected $fillable = [

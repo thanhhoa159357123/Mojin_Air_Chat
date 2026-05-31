@@ -1,79 +1,58 @@
+"use client";
+
 import { useFriendStore } from "@/stores/useFriendStore";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "./items/Header";
 import { useConversationHook } from "@/hooks/useConversationHook";
-import { useFriendHook } from "@/hooks/useFriendHook";
-import { Users } from "lucide-react";
+import { Users, User as UserIcon } from "lucide-react";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { IConversation } from "@/types/conversation";
+import { IMessage } from "@/types/message";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { useConversationPusher } from "@/hooks/useConversationPusher";
+import { useListFriendAndGroupHook } from "./hooks/useListFriendAndGroupHook";
 
 interface ListFriendProps {
   onToggleAddFriend: () => void;
   onToggleCreateGroup: () => void;
 }
 
-const ListFriend = ({
+const ListFriendAndGroup = ({
   onToggleAddFriend,
   onToggleCreateGroup,
 }: ListFriendProps) => {
-  const { friends } = useFriendHook();
-  const { conversations } = useConversationHook(); // Giả sử đây là danh sách các cuộc hội thoại/nhóm
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const {
+    searchTerm,
+    setSearchTerm,
+    activeTab,
+    setActiveTab,
+    friendIdSet,
 
-  const selectedFriend = useFriendStore((state) => state.selectedFriend);
-  const setSelectedFriend = useFriendStore((state) => state.setSelectedFriend);
+    getPrivateChatPartner,
+    filteredData,
+    selectConversation,
+    setSelectConversation,
+    markConversationRead,
 
-  // LOGIC LỌC DỮ LIỆU
-  const getFilteredData = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let baseData: any[] = [];
+    addConversationToState,
+  } = useListFriendAndGroupHook();
+  const user = useAuthStore((state) => state.user);
 
-    if (activeTab === "all") {
-      // Tab Tất cả: Hiện cả bạn bè và nhóm (conversations)
-      // Lưu ý: Bác nên dùng Set hoặc Map nếu muốn tránh trùng lặp giữa friend và conversation 1-1
-      baseData = [
-        ...friends,
-        ...conversations.filter((c) => c.type === "group"),
-      ];
-    } else if (activeTab === "friends") {
-      baseData = friends;
-    } else if (activeTab === "groups") {
-      baseData = conversations.filter((c) => c.type === "group");
+  useEffect(() => {
+    if (!selectConversation || selectConversation.type !== "private") return;
+
+    const partner = getPrivateChatPartner(selectConversation);
+    if (partner && !friendIdSet.has(partner.id)) {
+      setSelectConversation(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friendIdSet, selectConversation, setSelectConversation, user?.id]);
 
-    // Sau khi lọc theo tab, lọc tiếp theo SearchTerm
-    const filtered = baseData.filter((item) => {
-      const name = item.full_name || item.label || ""; // label cho group, full_name cho friend
-      return name.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+  useConversationPusher((newConv: IConversation) => {
+    addConversationToState(newConv); // Chỉ 1 dòng duy nhất!
+  });
 
-    // Sắp xếp đưa tin nhắn mới nhất lên đầu tiên
-    return filtered.sort((a, b) => {
-      // Xác định thời gian của từng item
-      let timeA = new Date(0).getTime();
-      let timeB = new Date(0).getTime();
-
-      if (a.type === "group" && a.updated_at) {
-        // Conversation / Group
-        timeA = new Date(a.updated_at).getTime();
-      } else if (a.last_message?.created_at) {
-        // Friend có tin nhắn
-        timeA = new Date(a.last_message.created_at).getTime();
-      }
-
-      if (b.type === "group" && b.updated_at) {
-        // Conversation / Group
-        timeB = new Date(b.updated_at).getTime();
-      } else if (b.last_message?.created_at) {
-        // Friend có tin nhắn
-        timeB = new Date(b.last_message.created_at).getTime();
-      }
-
-      // Giảm dần (mới nhất lên đầu)
-      return timeB - timeA;
-    });
-  };
-
-  const displayList = getFilteredData();
+  const displayList = filteredData;
 
   return (
     <div className="flex flex-col h-full bg-card rounded-2xl shadow-lg border border-border">
@@ -88,29 +67,78 @@ const ListFriend = ({
 
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
         {displayList.map((item) => {
-          // Xác định xem đây là Friend hay Group để hiển thị Icon/Avatar cho đúng
           const isGroup = item.type === "group";
-          const displayName = isGroup ? item.label : item.full_name;
+          const partner = getPrivateChatPartner(item);
+
+          // 🌟 TÍNH TOÁN TÊN HIỂN THỊ CHUẨN XỊN NGAY TẠI ĐÂY
+          const displayName = isGroup
+            ? item.label || "Nhóm chưa đặt tên"
+            : partner
+              ? partner.full_name ||
+                `${partner.last_name} ${partner.first_name}`
+              : "Người dùng Mojin";
+
+          // TẠO KEY ĐỘC NHẤT: Tránh trùng lặp id giữa user và conversation
+          const itemUniqueKey = isGroup
+            ? `group-${item.id}`
+            : `private-${item.id}-${partner?.id ?? "unknown"}-${item.last_message?.created_at || item.updated_at || "none"}`;
+
+          const msgObj = (item.last_message ??
+            (item as { lastMessage?: IMessage }).lastMessage) as
+            | IMessage
+            | undefined;
+          const unreadCount = Number(item.unread_count || 0);
+          const isPrivateSelected =
+            selectConversation?.type === "private" &&
+            !isGroup &&
+            selectConversation.id === item.id &&
+            Boolean(selectConversation.is_virtual) === Boolean(item.is_virtual);
 
           return (
             <div
-              key={item.id}
-              onClick={() => setSelectedFriend(item)}
+              key={itemUniqueKey}
+              onClick={() => {
+                setSelectConversation(item);
+                if (item.unread_count && item.unread_count > 0) {
+                  markConversationRead(item.id).catch(() => {});
+                }
+              }}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all ${
-                selectedFriend?.id === item.id
-                  ? "bg-primary/20"
-                  : "hover:bg-accent"
+                (
+                  isGroup
+                    ? selectConversation?.id === item.id &&
+                      selectConversation.type === "group"
+                    : isPrivateSelected
+                )
+                  ? "bg-primary/20 text-primary"
+                  : "hover:bg-accent text-foreground"
               }`}
             >
               {/* Avatar Logic */}
-              <div className="size-10 rounded-full bg-primary flex items-center justify-center shadow-md">
-                <span className="text-primary-foreground font-bold text-xs uppercase">
+              <div className="relative shrink-0">
+                <div className="size-10 rounded-full bg-primary flex items-center justify-center shadow-md overflow-hidden">
                   {isGroup ? (
-                    <Users className="size-5" />
+                    <Users className="size-5 text-primary-foreground" />
+                  ) : partner?.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={partner.avatar}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    displayName?.substring(0, 2)
+                    <span className="text-primary-foreground font-bold text-xs uppercase">
+                      {partner?.first_name?.substring(0, 2) || (
+                        <UserIcon className="size-4" />
+                      )}
+                    </span>
                   )}
-                </span>
+                </div>
+
+                {/* 💡 CỤC CHẤM ONLINE THẦN THÁNH NẰM Ở ĐÂY BÁC ƠI */}
+                {!isGroup && partner?.status === "online" && (
+                  <span className="absolute bottom-0 right-0 size-3 bg-emerald-500 rounded-full ring-2 ring-card shadow-sm animate-in fade-in zoom-in duration-300"></span>
+                )}
               </div>
 
               {/* Info Logic */}
@@ -119,13 +147,62 @@ const ListFriend = ({
                   <span className="font-bold text-sm truncate">
                     {displayName}
                   </span>
-                  <span className="text-[10px] opacity-60">
-                    {item.last_message?.time}
+                  <span className="text-[10px] opacity-60 shrink-0">
+                    {msgObj?.created_at
+                      ? new Date(msgObj.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : ""}
                   </span>
                 </div>
-                <p className="text-xs truncate opacity-70">
-                  {item.last_message?.content || "Chưa có tin nhắn"}
-                </p>
+
+                {/* 💡 ĐOẠN XỬ LÝ TIN NHẮN CUỐI CÙNG REAL-TIME SIÊU MƯỢT */}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs truncate opacity-70 mt-0.5">
+                    {msgObj
+                      ? (() => {
+                          const isMyLastMsg = msgObj.user_id === user?.id;
+
+                          // Phân rã nội dung hiển thị cho tin nhắn hỗn hợp hoặc file tĩnh
+                          let contentStr = msgObj.content;
+                          if (msgObj.type === "mixed") {
+                            try {
+                              const parsed = JSON.parse(msgObj.content);
+                              contentStr =
+                                parsed.text ||
+                                (parsed.images?.length
+                                  ? "[Hình ảnh]"
+                                  : "[Tệp tin]");
+                              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            } catch (e) {
+                              contentStr = msgObj.content;
+                            }
+                          } else if (msgObj.type === "image") {
+                            contentStr = "[Hình ảnh]";
+                          } else if (msgObj.type === "file") {
+                            contentStr = "[Tệp tin]";
+                          }
+
+                          if (isMyLastMsg) return `Bạn: ${contentStr}`;
+
+                          if (isGroup) {
+                            const senderInGroup = item.participants?.find(
+                              (p) => p.id === msgObj.user_id,
+                            );
+                            return `${senderInGroup?.first_name || "Thành viên"}: ${contentStr}`;
+                          }
+
+                          return contentStr;
+                        })()
+                      : "Chưa có tin nhắn"}
+                  </p>
+                  {unreadCount > 0 && (
+                    <span className="min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -141,4 +218,4 @@ const ListFriend = ({
   );
 };
 
-export default ListFriend;
+export default ListFriendAndGroup;

@@ -11,11 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('conversation_participants', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('conversation_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->timestamps();
+        Schema::table('participants', function (Blueprint $table) {
+            // Thêm cột cleared_at dạng timestamp, cho phép null, nằm ngay sau cột last_read_at
+            $table->timestamp('cleared_at')->nullable()->after('last_read_at');
         });
     }
 
@@ -24,6 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('conversation_participants');
+        Schema::table('participants', function (Blueprint $table) {
+            //
+        });
     }
 };

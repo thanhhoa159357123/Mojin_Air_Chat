@@ -1,13 +1,21 @@
 import axiosClient from "@/lib/axios";
 
-export const getMessage = async (id: number, type: "private" | "group") => {
-  const response = await axiosClient.get(`/messages/${id}?type=${type}`);
+export const getMessage = async (
+  id: number,
+  type: "private" | "group",
+  page = 1,
+  byFriend = false,
+) => {
+  const byParam = byFriend ? "&by=friend" : "";
+  const response = await axiosClient.get(
+    `/messages/${id}?type=${type}&page=${page}${byParam}`,
+  );
   return response.data;
 };
 
 export const sendMessage = async (
   id: number,
-  type: "private" | "group", // Thêm type vào đây
+  chatType: "private" | "group",
   content: string,
   parent_id?: number | null,
   msgType: string = "text",
@@ -15,10 +23,11 @@ export const sendMessage = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = { content, parent_id, type: msgType };
 
-  if (type === "private") {
-    payload.friend_id = id;
-  } else {
+  // Logic chia ngã rẽ cho Backend hiểu
+  if (chatType === "group") {
     payload.conversation_id = id;
+  } else {
+    payload.friend_id = id;
   }
 
   const response = await axiosClient.post(`/messages/`, payload);

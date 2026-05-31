@@ -56,7 +56,7 @@ class User extends Authenticatable
 
     public function getFullNameAttribute()
     {
-        return "{$this->first_name} {$this->last_name}";
+        return "{$this->last_name} {$this->first_name}";
     }
 
     public function friends()
@@ -75,6 +75,6 @@ class User extends Authenticatable
 
     public function conversations()
     {
-        return $this->belongsToMany(Conversation::class, 'conversation_participants')->withTimestamps();
+        return $this->belongsToMany(Conversation::class, 'participants')->withTimestamps();
     }
 }

@@ -1,6 +1,9 @@
 "use client";
 
-import { IFriend } from "@/types/friend";
+import { useFriendHook } from "@/hooks/useFriendHook";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { useFriendStore } from "@/stores/useFriendStore";
+import { IConversation } from "@/types/conversation";
 import { Loader2, Search, X } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -8,25 +11,23 @@ import { useEffect, useRef, useState } from "react";
 
 interface IPopUpAddFriend {
   addFriend: (friendId: number) => Promise<void>;
-  searchResults: IFriend[]; // Thay friends bằng searchResults
   searchFriends: (query: string, page?: number) => Promise<void>;
-  loading: boolean;
-  error: string | null;
-  hasMore: boolean;
   onCloseAddFriend: () => void;
 }
 
 const PopUpAddfriend = ({
   addFriend,
-  searchResults,
   searchFriends,
-  loading,
-  error,
-  hasMore,
   onCloseAddFriend,
 }: IPopUpAddFriend) => {
+  const searchResults = useFriendStore((state) => state.searchResults);
+  const { loading, error, hasMore } = useFriendHook();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
+
+  const setSelectConversation = useConversationStore(
+    (state) => state.setSelectConversation,
+  );
 
   // Trạm thu phí: Dùng để check xem người dùng đã cuộn tới đáy chưa
   const observerRef = useRef<HTMLDivElement | null>(null);
@@ -128,6 +129,72 @@ const PopUpAddfriend = ({
                 {searchResults && searchResults.length > 0 ? (
                   <>
                     {searchResults.map((user) => {
+                      // Bí thuật dọn dẹp nút bấm động ở đây cho sạch code
+                      const renderActionButton = () => {
+                        switch (user.friendship_status) {
+                          case 1: // Đã là bạn bè -> Hiện nút Nhắn tin (Style Outline/Secondary sang chảnh)
+                            return (
+                              <button
+                                onClick={() => {
+                                  // 💡 BƯỚC 1: Lấy danh sách phòng chat hiện tại từ kho tổng
+                                  const conversationStore =
+                                    useConversationStore.getState();
+                                  const currentConversations =
+                                    conversationStore.conversations;
+
+                                  // 💡 BƯỚC 2: Mò xem trong lịch sử chat có phòng nào chứa khứa này chưa
+                                  const realRoom = currentConversations.find(
+                                    (c) =>
+                                      c.participants?.some(
+                                        (p) => p.id === user.id,
+                                      ),
+                                  );
+
+                                  if (realRoom) {
+                                    // 🎉 CÓ PHÒNG THẬT: Chọn luôn phòng thật để giữ nguyên tin nhắn cũ
+                                    setSelectConversation(realRoom);
+                                  } else {
+                                    // 👻 CHƯA CÓ PHÒNG THẬT: Bạn mới tinh chưa chat bao giờ -> Tạo phòng ảo tạm thời
+                                    const fakeRoom: IConversation = {
+                                      id: user.id, // Tạm thời lấy ID khứa này làm ID phòng ảo
+                                      type: "private",
+                                      label: user.full_name,
+                                      participants: [user],
+                                      updated_at: new Date().toISOString(),
+                                    };
+                                    setSelectConversation(fakeRoom);
+                                  }
+
+                                  onCloseAddFriend(); // Đóng Pop-up
+                                }}
+                                className="px-4 py-2 bg-secondary text-primary hover:bg-accent border border-border text-[11px] font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-sm cursor-pointer"
+                              >
+                                Nhắn tin
+                              </button>
+                            );
+
+                          case 0: // Đang chờ kết bạn -> Hiện nút Mờ (Disabled) tránh bấm lại
+                            return (
+                              <button
+                                disabled
+                                className="px-4 py-2 bg-muted text-muted-foreground text-[11px] font-bold rounded-xl opacity-70 cursor-not-allowed"
+                              >
+                                Đang chờ...
+                              </button>
+                            );
+
+                          default: // Chưa có mối quan hệ (null) -> Nút Kết bạn gốc (Màu nổi bật thu hút)
+                            return (
+                              <button
+                                onClick={() => addFriend(user.id)}
+                                className="px-4 py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
+                              >
+                                Kết bạn
+                              </button>
+                            );
+                        }
+                      };
+
                       return (
                         <div
                           key={user.id}
@@ -156,12 +223,8 @@ const PopUpAddfriend = ({
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => addFriend(user.id)}
-                            className="px-4 py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
-                          >
-                            Kết bạn
-                          </button>
+                          {/* Gọi hàm render nút bấm ra đây, sạch sẽ như lau như ly */}
+                          {renderActionButton()}
                         </div>
                       );
                     })}

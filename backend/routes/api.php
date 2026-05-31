@@ -28,6 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json($request->user());
     });
 
+    // Route cập nhật trạng thái On/Off
+    Route::post('/user/status', [ConversationController::class, 'updateStatus']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/update', [AuthController::class, 'updateInformation']);
 
@@ -60,6 +63,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Tạo nhóm trò chuyện mới
         Route::post('/', [ConversationController::class, 'createConversations']);
+
+        Route::post('/{id}/typing', [ConversationController::class, 'typing']);
+
+        Route::post('/{id}/read', [ConversationController::class, 'markConversationRead']);
+
+        // Thêm thành viên vào nhóm trò chuyện
+        Route::post('/{id}/add-participants', [ConversationController::class, 'addParticipants']);
+
+        // Lấy danh sách thành viên trong nhóm
+        Route::get('/{id}/participants', [ConversationController::class, 'getParticipants']);
+
+        // Kick thành viên khỏi nhóm
+        Route::post('/{id}/remove-participants', [ConversationController::class, 'removeParticipants']);
     });
 
 

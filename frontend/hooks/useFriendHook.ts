@@ -1,5 +1,4 @@
 import { useFriendStore } from "@/stores/useFriendStore";
-import { useEffect } from "react";
 import { toast } from "sonner";
 
 export const useFriendHook = () => {
@@ -21,6 +20,7 @@ export const useFriendHook = () => {
   const handleAcceptFriendRequest = async (friendId: number) => {
     try {
       await store.acceptFriendRequest(friendId);
+      await store.getFriends();
       toast.success("Chúc mừng 2 người đã trở thành bạn!");
     } catch (error) {
       toast.error("Chấp nhận bạn bè thất bại. Thử lại nhé!");

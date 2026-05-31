@@ -11,6 +11,16 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { login, logout, register } from "../services/authService";
 import Cookies from "js-cookie";
+import { extractErrorMessage } from "@/lib/errorHandler"; // <-- IMPORT THẰNG NÀY VÀO BÁC ƠI
+import { useConversationStore } from "./useConversationStore";
+
+const clearConversationState = () => {
+  useConversationStore.getState().reset();
+  useConversationStore.persist.clearStorage();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("mojin-conversation-storage");
+  }
+};
 
 export const useAuthStore = create<IAuthState>()(
   persist(
@@ -21,40 +31,42 @@ export const useAuthStore = create<IAuthState>()(
       error: null,
 
       register: async (data: IAuthRegister) => {
-        // 1. Chốt hạ bằng Zod trước khi bắn API
         const validation = registerSchema.safeParse(data);
 
         if (!validation.success) {
-          // Lấy cái lỗi đầu tiên cho nó gọn
           const firstError = validation.error.issues[0].message;
           set({ error: firstError, loading: false });
-          return;
+          throw new Error(firstError);
         }
 
         set({ loading: true, error: null });
         try {
           const res = await register(data);
-          console.log("auth soter", res);
+          console.log("auth store", res);
           set({
             user: res.user,
             isAuthenticated: true,
             loading: false,
           });
-        } catch (error: any) {
-          const message =
-            error.response?.data?.message || "Đăng ký toang rồi bác ơi!";
+          clearConversationState();
+        } catch (error: unknown) {
+          // --- SẠCH ĐẸP GỌN GÀNG ---
+          const message = extractErrorMessage(
+            error,
+            "Đăng ký toang rồi bác ơi!",
+          );
           set({ error: message, loading: false });
-          throw error;
+          throw new Error(message);
         }
       },
 
       login: async (data: IAuthLogin) => {
-        // 2. Soi lỗi login luôn
         const validation = loginSchema.safeParse(data);
 
         if (!validation.success) {
-          set({ error: validation.error.issues[0].message, loading: false });
-          return;
+          const firstError = validation.error.issues[0].message;
+          set({ error: firstError, loading: false });
+          throw new Error(firstError);
         }
 
         set({ loading: true, error: null });
@@ -65,32 +77,22 @@ export const useAuthStore = create<IAuthState>()(
             isAuthenticated: true,
             loading: false,
           });
-        } catch (error: any) {
-          const message =
-            error.response?.data?.message || "Sai pass hay gì rồi!";
+          clearConversationState();
+        } catch (error: unknown) {
+          // --- SẠCH ĐẸP GỌN GÀNG ---
+          const message = extractErrorMessage(error, "Sai pass hay gì rồi!");
           set({ error: message, loading: false });
+          throw new Error(message);
         }
       },
 
       logout: async () => {
         set({ loading: true });
         try {
-          // Gọi API logout của Laravel để thu hồi Token trên Server
           await logout();
-        } catch (error) {
+        } catch (error: unknown) {
           console.error("Logout API lỗi nhưng vẫn xóa trắng client", error);
         } finally {
-          // 1. Xóa Token ở localStorage
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("auth_token");
-            localStorage.removeItem("mojin-auth-storage"); // Xóa luôn persist storage
-
-            // 2. QUAN TRỌNG: Xóa Cookie để Middleware không bị lú
-            // Bác nhớ check xem lúc Login bác đặt tên Cookie là gì (ở đây tôi để auth_token)
-            Cookies.remove("auth_token", { path: "/" });
-          }
-
-          // 3. Xóa sạch State
           set({
             user: null,
             isAuthenticated: false,
@@ -98,10 +100,17 @@ export const useAuthStore = create<IAuthState>()(
             error: null,
           });
 
-          // 4. Clear persist storage
           useAuthStore.persist.clearStorage();
+          clearConversationState();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("mojin-auth-storage");
+            Cookies.remove("auth_token", { path: "/" });
+          }
 
-          // 5. Hard reload hoặc chuyển trang sẽ được xử lý ở Hook
+          if (typeof window !== "undefined") {
+            window.location.href = "/login";
+          }
         }
       },
 
@@ -110,6 +119,12 @@ export const useAuthStore = create<IAuthState>()(
           typeof window !== "undefined" &&
           !localStorage.getItem("auth_token")
         ) {
+          set({ user: null, isAuthenticated: false, loading: false });
+          useAuthStore.persist.clearStorage();
+          clearConversationState();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("mojin-auth-storage");
+          }
           return;
         }
 
@@ -121,11 +136,20 @@ export const useAuthStore = create<IAuthState>()(
             isAuthenticated: true,
             loading: false,
           });
-        } catch (error) {
+        } catch (error: unknown) {
           if (typeof window !== "undefined") {
             localStorage.removeItem("auth_token");
           }
+          console.error(
+            "Check auth lỗi, có thể token hết hạn hoặc không hợp lệ",
+            error,
+          );
           set({ user: null, isAuthenticated: false, loading: false });
+          useAuthStore.persist.clearStorage();
+          clearConversationState();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("mojin-auth-storage");
+          }
         }
       },
     }),
