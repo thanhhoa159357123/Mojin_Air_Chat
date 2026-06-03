@@ -4,10 +4,12 @@ import { IChatState } from "@/types/message";
 import {
   deleteAllMessages,
   deleteMessage,
+  editMessage,
   getMessage,
   sendMessage,
 } from "@/services/messageService";
 import { extractErrorMessage } from "@/lib/errorHandler"; // <-- Rước vị cứu tinh vào đây
+import { useConversationStore } from "./useConversationStore";
 
 export const useChatStore = create<IChatState>((set) => ({
   messages: [],
@@ -97,14 +99,19 @@ export const useChatStore = create<IChatState>((set) => ({
   },
 
   // 3. Xóa một tin nhắn cụ thể
-  deleteMessage: async (messageId: number, friendId: number) => {
+  deleteMessage: async (conversationId: number, messageId: number) => {
     try {
-      await deleteMessage(messageId, friendId);
+      // 💡 ĐÃ FIX TRỌNG TÂM Ở ĐÂY: Đảo lại đúng thứ tự API (conversationId trước, messageId sau)
+      await deleteMessage(conversationId, messageId);
+
       set((state) => ({
         messages: state.messages.filter(
           (msg) => Number(msg.id) !== Number(messageId),
         ), // 💡 Ép kiểu cho chắc
       }));
+
+      // 🚀 KÍCH HOẠT BẢO BỐI: Xóa luôn tin nhắn ma ở Sidebar
+      useConversationStore.getState().fetchConversations();
     } catch (error: unknown) {
       // --- SỬA Ở ĐÂY ---
       const message = extractErrorMessage(error, "Xóa tin nhắn thất bại rồi!");
@@ -114,15 +121,44 @@ export const useChatStore = create<IChatState>((set) => ({
   },
 
   // 4. Xóa tất cả tin nhắn với bạn bè
-  deleteAllMessages: async (friendId: number) => {
+  deleteAllMessages: async (conversationId: number) => {
     try {
-      await deleteAllMessages(friendId);
+      await deleteAllMessages(conversationId);
       set({ messages: [] });
+      useConversationStore.getState().fetchConversations();
     } catch (error: unknown) {
       // --- SỬA Ở ĐÂY ---
       const message = extractErrorMessage(
         error,
         "Xóa sạch cuộc hội thoại thất bại!",
+      );
+      set({ error: message });
+      throw new Error(message);
+    }
+  },
+
+  // 5. Sửa tin nhắn (NẾU CÓ)
+  editMessage: async (
+    conversationId: number,
+    messageId: number,
+    content: string,
+  ) => {
+    try {
+      const response = await editMessage(conversationId, messageId, content);
+      const updateMessage = response.data || response;
+
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          Number(msg.id) === Number(messageId)
+            ? { ...msg, ...updateMessage }
+            : msg,
+        ),
+      }));
+    } catch (error: unknown) {
+      // --- SỬA Ở ĐÂY ---
+      const message = extractErrorMessage(
+        error,
+        "Chỉnh sửa tin nhắn thất bại!",
       );
       set({ error: message });
       throw new Error(message);

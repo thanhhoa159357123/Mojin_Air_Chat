@@ -47,3 +47,10 @@ export const rejectFriend = async (
   });
   return response.data;
 };
+
+export const addAvatar = async (avtUrl: string) => {
+  const response = await axiosClient.post("/add-avatar", {
+    avatar: avtUrl,
+  });
+  return response.data;
+};

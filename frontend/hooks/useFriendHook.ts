@@ -1,3 +1,4 @@
+import { extractErrorMessage } from "@/lib/errorHandler";
 import { useFriendStore } from "@/stores/useFriendStore";
 import { toast } from "sonner";
 
@@ -38,10 +39,21 @@ export const useFriendHook = () => {
     }
   };
 
+  const handleAddAvatar = async (avtUrl: string) => {
+    try {
+      const data = await store.addAvatar(avtUrl);
+      return data;
+    } catch (error) {
+      const message = extractErrorMessage(error, "Lỗi cập nhật avatar rồi!");
+      toast.error(message);
+    }
+  };
+
   return {
     ...store,
     handleAddFriend,
     handleAcceptFriendRequest,
     handleRejectFriendRequest,
+    handleAddAvatar,
   };
 };

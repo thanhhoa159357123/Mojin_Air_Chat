@@ -49,6 +49,7 @@ export const getConversationDetails = (
         : "mojin_user"
     : "mojin_air_chat";
 
+
   const displayAvatar = isGroup ? null : partner?.avatar;
 
   return { isGroup, partner, displayName, displayUsername, displayAvatar };

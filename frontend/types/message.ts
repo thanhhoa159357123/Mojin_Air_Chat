@@ -4,6 +4,7 @@ export interface IMessage {
   user_id: number; // Để biết ai gửi (mình hay bạn)
   parent_id?: number | null; // Nếu là tin nhắn gốc thì parent_id sẽ là null
   content: string;
+  edit_count: number; // Số lần đã chỉnh sửa
   type: string;
   created_at: string;
   sender?: {
@@ -38,6 +39,11 @@ export interface IChatState {
     parent_id?: number | null,
     msgType?: string,
   ) => Promise<IMessage>;
-  deleteMessage: (messageId: number, friendId: number) => Promise<void>;
-  deleteAllMessages: (friendId: number) => Promise<void>;
+  deleteMessage: (messageId: number, conversationId: number) => Promise<void>;
+  deleteAllMessages: (conversationId: number) => Promise<void>;
+  editMessage: (
+    conversationId: number,
+    messageId: number,
+    content: string,
+  ) => Promise<void>;
 }

@@ -13,6 +13,7 @@ class Message extends Model
         'user_id',
         'parent_id',
         'content',
+        'edit_count',
         'type',
         'deleted_by_ids', // Add thêm cái này
         'is_unsend'       // Add thêm cái này

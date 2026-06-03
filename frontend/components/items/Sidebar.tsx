@@ -1,6 +1,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useFriendStore } from "@/stores/useFriendStore";
 import { BellIcon } from "lucide-react";
+import Image from "next/image";
 
 interface SidebarProps {
   onToggleNotification: () => void;
@@ -16,13 +17,27 @@ const Sidebar = ({ onToggleNotification, onToggleSetting }: SidebarProps) => {
         onClick={() => onToggleSetting()}
         className="relative group cursor-pointer"
       >
-        <div className="size-10 rounded-full bg-primary shadow-lg ring-4 ring-ring/30 flex items-center justify-center">
-          <span className="text-primary-foreground font-semibold text-sm uppercase">
-            {user?.last_name?.[0] || ""}
-            {user?.first_name?.[0] || ""}
-          </span>
+        <div className="size-10 rounded-full bg-primary shadow-lg ring-4 ring-ring/30 flex items-center justify-center overflow-hidden">
+          {user?.avatar ? (
+            /* 💡 Đã fix: Bắn ảnh trực tiếp, ép full size và object-cover để bo tròn chuẩn đét */
+            <Image
+              src={user.avatar}
+              alt="Avatar"
+              className="size-full object-cover"
+              width={40}
+              height={40}
+              priority // Tối ưu tốc độ load ảnh đại diện của hệ thống
+            />
+          ) : (
+            /* 💡 Đã fix: Tách luồng render fallback text riêng biệt, không lồng bậy bạ vào thẻ span bọc ảnh */
+            <div className="text-primary-foreground font-bold text-sm uppercase tracking-wider">
+              {user?.last_name?.[0] || ""}
+              {user?.first_name?.[0] || "M"}
+            </div>
+          )}
         </div>
       </div>
+
       <div className="relative">
         <div
           className="text-muted-foreground transition duration-300 ease-in-out hover:text-primary hover:bg-secondary px-2 py-2 rounded-full cursor-pointer"

@@ -48,6 +48,10 @@ const FormInput = ({ inputHookData, handleSendMessage }: FormInputProps) => {
     attachments,
     removeAttachment,
     textAreaRef,
+
+    editingMessage, // <--- Bơm ra
+    startEditing, // <--- Bơm ra
+    cancelEditing, // <--- Bơm ra
   } = inputHookData;
 
   // 💡 HÀM HELPER BÓC TÁCH TÊN KHI REPLY THEO LUỒNG CONVERSATION MỚI
@@ -75,6 +79,26 @@ const FormInput = ({ inputHookData, handleSendMessage }: FormInputProps) => {
 
   return (
     <div className="flex flex-col bg-background/50 backdrop-blur-sm border-t border-border">
+      {/* 💡 CỤC UI MỚI: BÁO HIỆU ĐANG SỬA TIN NHẮN */}
+      {editingMessage && (
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-primary/10 mx-2 mt-2 rounded-t-xl">
+          <div className="flex flex-col">
+            <p className="text-xs font-semibold text-primary">
+              📝 Đang chỉnh sửa tin nhắn...
+            </p>
+            <p className="text-xs text-muted-foreground line-clamp-1 italic">
+              {editingMessage.content}
+            </p>
+          </div>
+          <button
+            onClick={cancelEditing}
+            className="text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+      
       {/* 1. KHU VỰC REPLY PREVIEW */}
       {replyingTo && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-foreground/5 mx-2 mt-2 rounded-t-xl">

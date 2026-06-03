@@ -7,7 +7,7 @@ import { useChatPusher } from "@/hooks/useChatPusher";
 import HeaderBar from "./items/HeaderBar";
 import { useChatFormHook } from "./hooks/useChatFormHook";
 import { useChatStore } from "@/stores/useChatStore";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useChatHook } from "@/hooks/useChatHook";
 import { useConversationStore } from "@/stores/useConversationStore";
 
@@ -73,6 +73,8 @@ const ChatForm = ({
     void loadMessages();
   }, [selectConversation, fetchMessages, markConversationRead]);
 
+  const [isEdited, setIsEdited] = useState(false);
+
   return (
     <div className="flex flex-col h-full bg-background/40 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-border">
       {/* Header Bar */}
@@ -88,6 +90,7 @@ const ChatForm = ({
       <FormChatting
         selectConversation={selectConversation}
         setReplyingTo={inputHookData.setReplyingTo}
+        startEditing={inputHookData.startEditing}
         setChatDeleteMessageId={setChatDeleteMessageId}
         setIsVisibleNotificationDeleteMessage={
           setIsVisibleNotificationDeleteMessage

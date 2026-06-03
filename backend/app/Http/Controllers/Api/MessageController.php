@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\MessageDeleted;
+use App\Events\MessageEdited;
 use App\Events\MessageSent;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -323,6 +324,68 @@ class MessageController extends Controller
             return response()->json(['message' => 'Phòng chat không tồn tại hoặc bạn không thuộc phòng này.'], 404);
         }
 
+        // 🚀 BẮN TRỰC TIẾP LỆNH SẠCH SẼ LÊN PUSHER
+        // Bác dùng lại chính cái Event MessageDeleted mà bác đã có sẵn, truyền type là 'clear_history' hoặc 'unsend' tùy bác cấu hình ở useChatPusher
+        broadcast(new MessageDeleted(0, $conversationId, 'clear_history'))->toOthers();
+
         return response()->json(['status' => 'success', 'message' => 'Đã dọn dẹp lịch sử trò chuyện thành công!']);
+    }
+
+    /**
+     * API: Chỉnh sửa tin nhắn (Giải pháp 2: Tăng edit_count thần thánh)
+     */
+    public function editMessage(Request $request, $conversationId, $messageId)
+    {
+        $myId = $request->user()->id;
+
+        // 1. Bảo mật tầng 1: Kiểm tra xem khứa này có thuộc phòng chat này không
+        $isParticipant = DB::table('participants')
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $myId)
+            ->exists();
+
+        if (!$isParticipant) {
+            return response()->json(['message' => 'Bạn không có quyền truy cập phòng chat này.'], 403);
+        }
+
+        // 2. Tìm con tin nhắn cụ thể trong phòng
+        $message = Message::where('id', $messageId)
+            ->where('conversation_id', $conversationId)
+            ->firstOrFail();
+
+        // 3. CHÍ MẠNG: Đề phòng user phá hoại, chỉ cho phép CHÍNH CHỦ sửa tin của mình!
+        if ($message->user_id !== $myId) {
+            return response()->json(['message' => 'Bạn không có quyền chỉnh sửa tin nhắn của người khác.'], 403);
+        }
+
+        // 4. Validate nội dung sửa đổi đầu vào
+        $validated = $request->validate([
+            'content' => 'required|string',
+        ]);
+
+        // 5. Triển khai thuật toán tăng số lần vấp ngã của User
+        $message->content = $validated['content'];
+        $message->edit_count += 1; // Tự động cộng dồn lên: 1, 2, 3, 4, 5...
+        $message->save();
+
+        // 6. Đồng bộ lại meta phòng chat (đề phòng tin nhắn bị sửa là tin nhắn cuối cùng)
+        $this->updateLastMessage($message->conversation);
+
+        // 7. Load lại toàn bộ nguyên con dữ liệu kèm relationship y hệt lúc gửi để FE húp phát ăn ngay
+        $fullMessageData = $message->load([
+            'sender:id,first_name,last_name,avatar',
+            'parent.sender:id,first_name,last_name',
+            'conversation.participants:id'
+        ]);
+
+        // 8. PHÁT SÓNG REALTIME: Bắn tín hiệu sang cho đối phương cập nhật UI lập tức
+        // (Khúc này mốt bác tạo thêm cái Event tên là MessageEdited rồi bật dòng dưới lên là chuẩn bài)
+        broadcast(new MessageEdited($fullMessageData))->toOthers();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cập nhật tin nhắn thành công!',
+            'data' => $fullMessageData
+        ]);
     }
 }

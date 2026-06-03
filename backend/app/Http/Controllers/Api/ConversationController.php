@@ -25,27 +25,32 @@ class ConversationController extends Controller
         // Lấy thông tin user hiện tại từ token
         $user = $request->user();
 
+        // 💡 BƯỚC ĐỘT PHÁ 1: Lấy trước metadata (cleared_at, last_read_at) của User để chuẩn bị bẫy tin nhắn ma
+        $participantMeta = DB::table('participants')
+            ->where('user_id', $user->id)
+            ->get(['conversation_id', 'last_read_at', 'cleared_at'])
+            ->keyBy('conversation_id');
+
         // Lấy các cuộc trò chuyện mà user có tham gia
         $conversations = Conversation::whereHas('participants', function ($query) use ($user) {
             $query->where('user_id', $user->id);
         })
             ->with([
-                // Lấy thông tin tin nhắn cuối cùng để hiển thị đoạn preview kèm thời gian
-                'lastMessage',
+                // 💡 BƯỚC ĐỘT PHÁ 2: Nắn lại câu query lastMessage
+                'lastMessage' => function ($query) use ($user, $participantMeta) {
+                    $query->where(function ($q) use ($user) {
+                        $q->whereJsonDoesntContain('deleted_by_ids', $user->id)
+                            ->orWhereNull('deleted_by_ids');
+                    });
+                },
                 // Load thông tin các người tham gia khác (không bao gồm mình)
                 'participants' => function ($query) use ($user) {
                     $query->where('users.id', '!=', $user->id)
-                        ->select(['users.id', 'first_name', 'last_name', 'avatar', 'users.status']);
+                        ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar', 'users.status']);
                 }
             ])
             ->orderByDesc('updated_at') // Cuộc trò chuyện nào có tin nhắn mới thì trồi lên đầu
             ->get();
-
-        $participantMeta = DB::table('participants')
-            ->where('user_id', $user->id)
-            ->whereIn('conversation_id', $conversations->pluck('id'))
-            ->get(['conversation_id', 'last_read_at', 'cleared_at'])
-            ->keyBy('conversation_id');
 
         $conversations->each(function ($conversation) use ($user, $participantMeta) {
             $meta = $participantMeta->get($conversation->id);
@@ -59,6 +64,15 @@ class ConversationController extends Controller
                 $threshold = $lastReadAt ?? $clearedAt;
             }
 
+            // 🚀 BÍ THUẬT TRIỆT TIÊU MA: Nếu tin nhắn cuối cùng được tạo TRƯỚC mốc dọn lịch sử (cleared_at)
+            // thì ép cái relation lastMessage về null ngay lập tức, dọn sạch preview sidebar!
+            if ($clearedAt && $conversation->lastMessage) {
+                if (Carbon::parse($conversation->lastMessage->created_at)->lessThanOrEqualTo($clearedAt)) {
+                    $conversation->setRelation('lastMessage', null);
+                }
+            }
+
+            // Logic tính số tin nhắn chưa đọc (Giữ nguyên vẹn logic đỉnh cao của bác)
             $unreadCount = Message::where('conversation_id', $conversation->id)
                 ->where('user_id', '!=', $user->id)
                 ->when($threshold, function ($query) use ($threshold) {

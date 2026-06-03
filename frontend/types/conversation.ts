@@ -7,8 +7,9 @@ export interface IConversation {
   type: "private" | "group";
   label: string;
   updated_at: string;
+
   participants: IFriend[]; // Bọn BE trả về danh sách người tham gia (chứa thông tin friend)
-  last_message?: IMessage; // Thông tin tin nhắn cuối cùng để làm preview
+  last_message?: IMessage | null; // Thông tin tin nhắn cuối cùng để làm preview
   unread_count?: number; // Số tin nhắn chưa đọc
   is_virtual?: boolean; // Phân biệt phòng ảo (friend id) và phòng thật
 }
@@ -40,4 +41,5 @@ export interface IConversationState {
     status: "online" | "offline",
     lastActiveAt?: string,
   ) => void;
+
 }

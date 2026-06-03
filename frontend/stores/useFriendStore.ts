@@ -3,6 +3,7 @@
 import { extractErrorMessage } from "@/lib/errorHandler";
 import {
   acceptFriend,
+  addAvatar,
   addFriend,
   getFriendRequests,
   getFriends,
@@ -113,6 +114,17 @@ export const useFriendStore = create<IFriendState>((set) => ({
         "Lỗi từ từ chối lời mời kết bạn rồi!",
       );
       set({ error: message, loading: false });
+      throw new Error(message);
+    }
+  },
+
+  addAvatar: async (avtUrl: string) => {
+    try {
+      const response = await addAvatar(avtUrl);
+      return response;
+    } catch (error: unknown) {
+      const message = extractErrorMessage(error, "Lỗi cập nhật avatar rồi!");
+      set({ error: message });
       throw new Error(message);
     }
   },

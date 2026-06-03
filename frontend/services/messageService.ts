@@ -34,15 +34,33 @@ export const sendMessage = async (
   return response.data;
 };
 
-export const deleteMessage = async (message_id: number, friend_id: number) => {
+export const deleteMessage = async (
+  conversationId: number,
+  message_id: number,
+) => {
   const response = await axiosClient.delete(
-    `/messages/${friend_id}/${message_id}`,
+    `/messages/${conversationId}/${message_id}`,
   );
   console.log(response.data);
   return response.data;
 };
 
-export const deleteAllMessages = async (friend_id: number) => {
-  const response = await axiosClient.delete(`/messages/${friend_id}`);
+export const deleteAllMessages = async (conversationId: number) => {
+  const response = await axiosClient.delete(`/messages/${conversationId}`);
   return response.data;
+};
+
+export const editMessage = async (
+  conversationId: number,
+  messageId: number,
+  content: string, // 💡 BẮT BUỘC: Phải có nội dung mới để BE cập nhật
+) => {
+  const response = await axiosClient.post(
+    `/messages/${conversationId}/${messageId}`,
+    {
+      content: content, // Nội dung tin nhắn đã sửa "em ngủ dữ z"
+      _method: "PUT", // 💡 BÙA CHÚ: Giả lập PUT qua POST để Laravel không bị rỗng request
+    },
+  );
+  return response.data; // Trả về data để FE húp cho tiện
 };

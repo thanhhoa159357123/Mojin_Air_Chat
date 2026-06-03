@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
@@ -103,5 +104,33 @@ class AuthController extends Controller
             'user'    => $user
         ]);
     }
-    // Đã gửi bức ảnh mới
+
+    public function addAvatar(Request $request)
+    {
+        // 1. Lấy thông tin user đang gửi request (đã được middleware xác thực qua Token)
+        $user = $request->user();
+
+        // 2. Validate dữ liệu đầu vào (chỉ chấp nhận file ảnh)
+        $validator = Validator::make($request->all(), [
+            'avatar' => 'required|url',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Đường dẫn ảnh đại diện không hợp lệ!',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user->avatar = $request->input('avatar');
+        $user->save();
+
+        // 4. Trả kết quả về cho Front-end (Zustand) để cập nhật lại State
+        return response()->json([
+            'success' => true,
+            'message' => 'Cập nhật avatar lên Cloudinary thành công!',
+            'user' => $user // Trả nguyên con User mới cập nhật về để Zustand húp phát ăn ngay
+        ], 200);
+    }
 }

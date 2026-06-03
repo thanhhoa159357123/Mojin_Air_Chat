@@ -1,7 +1,7 @@
 "use client";
 
 import { IMessage } from "@/types/message";
-import { Reply, Smile, Trash2 } from "lucide-react";
+import { Edit2, Reply, Smile, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IConversation } from "@/types/conversation";
 import Image from "next/image";
@@ -17,6 +17,7 @@ interface HasMessageProps {
   setChatDeleteMessageId: (id: number | null) => void;
   getFileNameFromUrl: (url: string) => string;
   setIsVisibleNotificationDeleteMessage: (visible: boolean) => void;
+  startEditing: (msg: IMessage) => void;
 }
 
 const HasMessage = ({
@@ -30,6 +31,7 @@ const HasMessage = ({
   setChatDeleteMessageId,
   getFileNameFromUrl,
   setIsVisibleNotificationDeleteMessage,
+  startEditing,
 }: HasMessageProps) => {
   const user = useAuthStore((state) => state.user);
 
@@ -42,7 +44,7 @@ const HasMessage = ({
     if (typeof contentData === "string") {
       try {
         return JSON.parse(contentData);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         return { text: contentData, images: [], files: [] };
       }
@@ -170,6 +172,12 @@ const HasMessage = ({
             </div>
           ) : msg.type === "mixed" ? (
             <div className="flex flex-col gap-2 max-w-72">
+              {msg.edit_count > 0 && (
+                <span className="text-[10px] text-foreground/50 italic self-end pr-1 mt-1">
+                  (Đã chỉnh sửa)
+                </span>
+              )}
+
               {/* 1. Text chữ */}
               {currentContent.text && (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word px-0.5">
@@ -233,9 +241,18 @@ const HasMessage = ({
               )}
             </div>
           ) : (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
-              {msg.content}
-            </p>
+            <div className="flex flex-col">
+              {/* 💡 HIỂN THỊ TAG SỬA CHO TEXT THUẦN */}
+              {msg.edit_count > 0 && (
+                <span className="text-[10px] text-primary-foreground/70 italic self-end mt-0.5">
+                  (Đã chỉnh sửa)
+                </span>
+              )}
+
+              <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                {msg.content}
+              </p>
+            </div>
           )}
         </div>
 
@@ -252,6 +269,19 @@ const HasMessage = ({
           >
             <Reply className="size-4 font-bold" />
           </button>
+          {/* 💡 NÚT SỬA TIN NHẮN (Chỉ hiện khi là tin của mình, không phải hệ thống, không phải hình/file đơn thuần) */}
+          {!isThem &&
+            msg.type !== "system" &&
+            msg.type !== "image" &&
+            msg.type !== "file" && (
+              <button
+                onClick={() => startEditing(msg)}
+                title="Chỉnh sửa tin nhắn"
+                className="p-1 hover:bg-primary/10 hover:text-primary rounded-full transition-colors cursor-pointer"
+              >
+                <Edit2 className="size-4 font-bold" />
+              </button>
+            )}
           <button
             onClick={() => {
               setChatDeleteMessageId(msg.id);

@@ -23,67 +23,10 @@ class FriendController extends Controller
 
     public function getFriends(Request $request)
     {
-        $user = $request->user();
-
-        $friends = $user->friends()
+        $friends = $request->user()->friends()
             ->wherePivot('status', self::STATUS_ACCEPTED)
             ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar', 'users.status'])
-            ->addSelect([
-                'last_msg_content' => Message::select('content')
-                    ->whereHas('conversation', function ($query) use ($user) {
-                        $query->where('type', 'private')
-                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
-                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
-                    })
-                    ->where(function ($query) use ($user) {
-                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
-                            ->orWhereNull('deleted_by_ids');
-                    })
-                    ->orderBy('created_at', 'desc')
-                    ->limit(1),
-
-                'last_msg_type' => Message::select('type')
-                    ->whereHas('conversation', function ($query) use ($user) {
-                        $query->where('type', 'private')
-                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
-                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
-                    })
-                    ->where(function ($query) use ($user) {
-                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
-                            ->orWhereNull('deleted_by_ids');
-                    })
-                    ->orderBy('created_at', 'desc')
-                    ->limit(1),
-
-                'last_msg_user_id' => Message::select('user_id')
-                    ->whereHas('conversation', function ($query) use ($user) {
-                        $query->where('type', 'private')
-                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
-                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
-                    })
-                    ->where(function ($query) use ($user) {
-                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
-                            ->orWhereNull('deleted_by_ids');
-                    })
-                    ->orderBy('created_at', 'desc')
-                    ->limit(1),
-
-                'last_msg_created_at' => Message::select('created_at')
-                    ->whereHas('conversation', function ($query) use ($user) {
-                        $query->where('type', 'private')
-                            ->whereHas('participants', fn($p) => $p->where('users.id', $user->id))
-                            ->whereHas('participants', fn($p) => $p->whereColumn('users.id', 'friends.friend_id'));
-                    })
-                    ->where(function ($query) use ($user) {
-                        $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
-                            ->orWhereNull('deleted_by_ids');
-                    })
-                    ->orderBy('created_at', 'desc')
-                    ->limit(1)
-            ])
             ->get();
-
-        // Chỉ việc ném collection vào Resource và trả về JSON chuẩn
         return FriendResource::collection($friends);
     }
 
@@ -300,30 +243,5 @@ class FriendController extends Controller
         ]);
     }
 
-    public function searchFriendForChat(Request $request)
-    {
-        $request->validate([
-            'query' => 'required|string|min:1'
-        ]);
-
-        $user = $request->user();
-        $searchTerm = $request->input('query');
-
-        $results = $user->friends()
-            ->wherePivot('status', self::STATUS_ACCEPTED)
-            ->where(function ($q) use ($searchTerm) {
-                // Thêm tiền tố 'users.' để triệt tiêu lỗi Ambiguous Column của SQL
-                $q->where('users.first_name', 'like', "%{$searchTerm}%")
-                    ->orWhere('users.last_name', 'like', "%{$searchTerm}%")
-                    ->orWhere('users.username', 'like', "%{$searchTerm}%");
-            })
-            ->select(['users.id', 'users.first_name', 'users.last_name', 'users.username', 'users.avatar'])
-            ->simplePaginate(15);
-
-        return response()->json([
-            'status'  => 'success',
-            'data'    => ChatFriendSearchResource::collection($results->items()),
-            'hasMore' => $results->hasMorePages(),
-        ]);
-    }
+    // 
 }

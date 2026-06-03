@@ -137,10 +137,36 @@ export const useChatPusher = (selectConversation: IConversation | null) => {
       }
     });
 
+    // 🚀 CỔNG 3: NHẬN LỆNH SỬA TIN NHẮN TỪ ĐỐI PHƯƠNG (DÙNG PURE PUSHER TRỰC TIẾP)
+    channel.bind(
+      "MessageEdited", // 💡 Nhắc lại: Tên này phải khớp 100% với hàm broadcastAs() bên Laravel
+      (data: { message: IMessage }) => {
+        console.log(
+          "📝 [useChatPusher] Bắt quả tang tin nhắn vừa bị sửa (Realtime):",
+          data.message,
+        );
+
+        // Đục thẳng vào State của useChatStore bằng callback để lấy mảng mới nhất
+        useChatStore.setState((state) => {
+          const targetId = Number(data.message.id);
+
+          return {
+            // Duyệt qua mảng messages hiện tại, tìm con ID bị sửa để đè nguyên con data mới từ BE dội về
+            messages: state.messages.map((msg) =>
+              Number(msg.id) === targetId
+                ? { ...msg, ...data.message } // Đè content mới và cả edit_count mới luôn
+                : msg,
+            ),
+          };
+        });
+      },
+    );
+
     // 💡 BẢO BỐI GIẢI NGHIỆP: User chuyển phòng chat phát là dọn dẹp sạch sẽ
     return () => {
       channel.unbind_all();
       // channel.unsubscribe();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectConversation?.id]); // Lắng nghe theo sự thay đổi ID của phòng đang chọn
 };

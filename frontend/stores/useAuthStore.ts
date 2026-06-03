@@ -152,6 +152,21 @@ export const useAuthStore = create<IAuthState>()(
           }
         }
       },
+
+      updateAvatarState: (avatarUrl: string) => {
+        set((state) => {
+          // Nếu có user đang đăng nhập thì mới tiến hành đè data
+          if (state.user) {
+            return {
+              user: {
+                ...state.user,
+                avatar: avatarUrl, // Ghi đè link ảnh mới từ Cloudinary dội về
+              },
+            };
+          }
+          return {};
+        });
+      },
     }),
     {
       name: "mojin-auth-storage",

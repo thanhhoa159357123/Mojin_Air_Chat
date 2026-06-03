@@ -100,7 +100,7 @@ export const useChatHook = (selectConversation: IConversation | null) => {
     if (!selectConversation) return;
 
     try {
-      await store.deleteMessage(messageId, selectConversation.id);
+      await store.deleteMessage(selectConversation.id, messageId);
       toast.success("Đã xóa tin nhắn.");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -131,6 +131,22 @@ export const useChatHook = (selectConversation: IConversation | null) => {
     }
   };
 
+  // Hàm sửa tin nhắn (NẾU CÓ)
+  const handleEditMessage = async (messageId: number, content: string) => {
+    if (!selectConversation) return;
+
+    try {
+      // Gọi sang store Zustand để nó lo phần Axios và đè State
+      await store.editMessage(selectConversation.id, messageId, content);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Chỉnh sửa tin nhắn thất bại.");
+      }
+    }
+  };
+
   return {
     ...store,
 
@@ -142,5 +158,6 @@ export const useChatHook = (selectConversation: IConversation | null) => {
     handleSendMessage,
     handleDeleteMessage,
     handleAllDeleteMessages,
+    handleEditMessage,
   };
 };

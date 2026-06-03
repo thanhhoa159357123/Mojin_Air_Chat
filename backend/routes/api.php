@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/update', [AuthController::class, 'updateInformation']);
+    Route::post('/add-avatar', [AuthController::class, 'addAvatar']);
 
     // --- Chức năng kết bạn chiến hữu ---
     Route::prefix('friends')->group(function () {
@@ -86,10 +87,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Gửi tin nhắn mới
         Route::post('/', [MessageController::class, 'sendMessage']);
 
+        // Sửa tin nhắn
+        Route::put('/{conversationId}/{messageId}', [MessageController::class, 'editMessage']);
+
         // Thu hồi tin nhắn (cả 2 người đều mất)
-        Route::delete('/{friendId}/{messageId}', [MessageController::class, 'deleteMessage']);
+        Route::delete('/{conversationId}/{messageId}', [MessageController::class, 'deleteMessage']);
 
         // Xóa tin nhắn (chỉ ẩn với người xóa, không xóa thật)
-        Route::delete('/{friendId}', [MessageController::class, 'deleteAllMessages']);
+        Route::delete('/{conversationId}', [MessageController::class, 'deleteAllMessages']);
     });
 });

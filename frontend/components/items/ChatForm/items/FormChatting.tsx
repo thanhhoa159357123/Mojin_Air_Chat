@@ -19,6 +19,7 @@ interface FormChattingProps {
   setReplyingTo: (msg: IMessage | null) => void;
   setChatDeleteMessageId: (id: number | null) => void;
   setIsVisibleNotificationDeleteMessage: (visible: boolean) => void;
+  startEditing: (msg: IMessage) => void; // 💡 NHẬN HÀM START EDITING TỪ CHA
 }
 
 const FormChatting = ({
@@ -26,6 +27,7 @@ const FormChatting = ({
   setChatDeleteMessageId,
   setIsVisibleNotificationDeleteMessage,
   selectConversation,
+  startEditing,
 }: FormChattingProps) => {
   const { typingUser } = useChatFormHook();
   const user = useAuthStore((state) => state.user); // 💡 LẤY THÊM STATE TỪ STORE
@@ -171,6 +173,7 @@ const FormChatting = ({
                   setIsVisibleNotificationDeleteMessage={
                     setIsVisibleNotificationDeleteMessage
                   }
+                  startEditing={startEditing}
                 />
               </div>
             );

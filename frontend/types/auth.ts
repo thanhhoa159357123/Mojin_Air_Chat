@@ -47,6 +47,8 @@ export interface IAuthState {
   logout: () => Promise<void>;
   // Thêm cái này để lúc F5 trang nó tự nạp lại user từ Token
   checkAuth: () => Promise<void>;
+
+  updateAvatarState: (avatarUrl: string) => void;
 }
 
 // Schema cho Đăng ký

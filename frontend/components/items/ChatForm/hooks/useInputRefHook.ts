@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { toast } from "sonner";
 import { compressImage } from "@/lib/utils";
 import { IMessage } from "@/types/message";
 import { useChatHook } from "@/hooks/useChatHook";
@@ -21,13 +20,16 @@ export const useInputRefHook = () => {
   );
 
   // Đấu nối selectConversation xịn vào useChatHook để lôi hàm gửi tin nhắn ra
-  const { handleSendMessage } = useChatHook(selectConversation);
+  const { handleSendMessage, handleEditMessage } =
+    useChatHook(selectConversation);
 
   // 💡 1. THÊM REF CHO TEXTAREA ĐỂ ĐIỀU KHIỂN CHIỀU CAO
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingMessage, setEditingMessage] = useState<IMessage | null>(null);
 
   const [inputValue, setInputValue] = useState("");
   const [replyingTo, setReplyingTo] = useState<IMessage | null>(null);
@@ -88,6 +90,23 @@ export const useInputRefHook = () => {
     if ((!hasText && !hasAttachments) || !selectConversation) return;
 
     const textToSend = trimmedText;
+
+    if (editingMessage) {
+      if (!hasText) return; // Không cho phép sửa thành rỗng (muốn rỗng thì thu hồi đi)
+
+      try {
+        await handleEditMessage(editingMessage.id, textToSend); // Bắn API sửa
+
+        // Reset lại UI sau khi sửa xong
+        setEditingMessage(null);
+        setInputValue("");
+        if (textAreaRef.current) textAreaRef.current.style.height = "auto";
+      } catch (err) {
+        console.error("Lỗi sửa tin nhắn:", err);
+      }
+      return; // 💡 Ngắt luôn luồng, không chạy code gửi mới ở dưới nữa
+    }
+
     const attachmentsToSend = [...attachments];
 
     setInputValue("");
@@ -111,8 +130,6 @@ export const useInputRefHook = () => {
 
     // 🚀 NHÁNH 2: Có đính kèm file (Tin nhắn MIXED vạn năng)
     try {
-      toast.loading(`Đang xử lý gửi ${attachmentsToSend.length} tệp tin...`);
-
       const uploadPromises = attachmentsToSend.map((item) =>
         uploadSingleFileToCloudinary(item),
       );
@@ -138,11 +155,7 @@ export const useInputRefHook = () => {
       // Bắn thẳng sang API Laravel với type là 'mixed'
       await handleSendMessage(mixedPayload, replyingTo?.id || null, "mixed");
 
-      toast.dismiss();
-      toast.success("Đã gửi tin nhắn hỗn hợp thành công!");
     } catch (error) {
-      toast.dismiss();
-      toast.error("Gửi tin nhắn hỗn hợp thất bại.");
       console.error("Lỗi gửi tin hỗn hợp:", error);
     }
   };
@@ -204,6 +217,21 @@ export const useInputRefHook = () => {
     });
   };
 
+  const startEditing = (msg: IMessage) => {
+    setEditingMessage(msg);
+    setInputValue(msg.content || ""); // Bê nội dung cũ quăng vào Input
+    setReplyingTo(null); // Đang sửa thì dẹp mẹ cái mode Trả lời đi cho đỡ rối
+    if (textAreaRef.current) {
+      textAreaRef.current.focus(); // Tự động trỏ nháy chuột vào ô text
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditingMessage(null);
+    setInputValue("");
+    if (textAreaRef.current) textAreaRef.current.style.height = "auto";
+  };
+
   return {
     inputValue,
     setInputValue,
@@ -218,5 +246,9 @@ export const useInputRefHook = () => {
     handlePaste,
     removeAttachment,
     textAreaRef,
+
+    editingMessage, // <--- Bơm ra
+    startEditing, // <--- Bơm ra
+    cancelEditing, // <--- Bơm ra
   };
 };

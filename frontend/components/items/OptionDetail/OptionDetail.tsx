@@ -54,9 +54,9 @@ const OptionDetail = ({
         />
 
         {/* Option 4: Thành viên */}
-        <OptionMember
-          setIsOpenMember={() => setIsOpenMember(true)}
-        />
+        {type === "group" && (
+          <OptionMember setIsOpenMember={() => setIsOpenMember(true)} />
+        )}
       </div>
 
       {/* Footer - Thông tin thêm */}

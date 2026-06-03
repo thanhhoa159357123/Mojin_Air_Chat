@@ -1,5 +1,3 @@
-import { IConversation } from "./conversation";
-
 // types/friend.ts
 export interface ILastMessage {
   content: string;
@@ -40,4 +38,5 @@ export interface IFriendState {
   fetchFriendRequests: () => Promise<void>;
   acceptFriendRequest: (friendId: number) => Promise<void>;
   rejectFriendRequest: (friendId: number) => Promise<void>;
+  addAvatar: (avtUrl: string) => Promise<void>;
 }
