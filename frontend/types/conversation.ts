@@ -14,6 +14,16 @@ export interface IConversation {
   is_virtual?: boolean; // Phân biệt phòng ảo (friend id) và phòng thật
 }
 
+export interface IPartner {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  username: string;
+  avatar: string | null;
+  status: number | string | null;
+}
+
 export interface IConversationState {
   conversations: IConversation[]; // Mảng cuộc trò chuyện
   loading: boolean;

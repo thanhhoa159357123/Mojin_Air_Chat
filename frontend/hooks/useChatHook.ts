@@ -4,157 +4,178 @@ import { useChatStore } from "@/stores/useChatStore";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IConversation } from "@/types/conversation";
+import { IMessage } from "@/types/message";
 import { toast } from "sonner";
 import { getConversationDetails } from "@/lib/conversationUtils";
 
 export const useChatHook = (selectConversation: IConversation | null) => {
-  const user = useAuthStore((state) => state.user); // 💡 NẠP VỊ CỨU TINH USER VÀO ĐÂY
-
+  const user = useAuthStore((state) => state.user);
   const store = useChatStore();
+  const conversations = useConversationStore((state) => state.conversations);
+
+  const liveConversation = selectConversation
+    ? conversations.find(
+        (c) =>
+          c.id === selectConversation.id && c.type === selectConversation.type,
+      ) || selectConversation
+    : null;
 
   const { isGroup, partner, displayName, displayAvatar } =
-    getConversationDetails(selectConversation, user?.id);
+    getConversationDetails(liveConversation, user?.id);
 
-  // Hàm gửi tin nhắn
+  // 🚀 OPTIMISTIC UI: GỬI TIN NHẮN (Gửi phát Sidebar và Khung chat lên Top luôn)
   const handleSendMessage = async (
     content: string,
     parent_id?: number | null,
     messageType: string = "text",
   ) => {
-    if (!selectConversation) return;
+    if (!selectConversation || !user?.id) return;
+
+    const type = isGroup ? "group" : "private";
+    const fakeMsgId = `optimistic-${Date.now()}`;
+
+    // 1. TẠO TIN NHẮN GIẢ TRÊN RAM
+    const fakeMessage: IMessage = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      id: fakeMsgId as any,
+      conversation_id: selectConversation.id,
+      user_id: user.id,
+      parent_id: parent_id || null,
+      content: content,
+      edit_count: 0,
+      type: messageType,
+      created_at: new Date().toISOString(),
+      sender: {
+        id: user.id,
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        avatar: user.avatar || null,
+      },
+    };
+
+    // 2. NHÉT VÀO KHUNG CHAT (0ms)
+    useChatStore.setState((chatState) => ({
+      messages: [...chatState.messages, fakeMessage],
+    }));
+
+    // 3. ĐẨY LÊN TOP SIDEBAR (0ms)
+    useConversationStore.setState((convState) => {
+      const restConversations = convState.conversations.filter((c) => c.id !== selectConversation.id);
+      const targetConv = convState.conversations.find((c) => c.id === selectConversation.id) || selectConversation;
+      const updatedConv = { ...targetConv, last_message: fakeMessage, updated_at: fakeMessage.created_at, unread_count: 0 };
+      
+      return {
+        conversations: [updatedConv, ...restConversations],
+        selectConversation: convState.selectConversation?.id === selectConversation.id ? updatedConv : convState.selectConversation,
+      };
+    });
 
     try {
-      const type = isGroup ? "group" : "private";
+      // 4. GỌI API NGẦM
+      const responseData = await store.sendMessage(selectConversation.id, type, content, parent_id, messageType);
 
-      // 1. Gọi API Gửi tin nhắn
-      const newMessage = await store.sendMessage(
-        selectConversation.id, // Nếu là phòng ảo thì đây là ID của user, Laravel tự hiểu
-        type,
-        content,
-        parent_id,
-        messageType,
-      );
+      if (!responseData) return;
 
-      if (!newMessage) return;
-
-      useConversationStore.setState((state) => {
-        const conversationId = newMessage.conversation_id;
-        const currentSelect = state.selectConversation;
-
-        const updatedSelect = currentSelect
-          ? currentSelect.id === conversationId
-            ? {
-                ...currentSelect,
-                last_message: newMessage,
-                updated_at: newMessage.created_at,
-                unread_count: 0,
-                is_virtual: false,
-              }
-            : currentSelect.type === "private"
-              ? {
-                  ...currentSelect,
-                  id: conversationId,
-                  last_message: newMessage,
-                  updated_at: newMessage.created_at,
-                  unread_count: 0,
-                  is_virtual: false,
-                }
-              : currentSelect
-          : currentSelect;
-
-        const exists = state.conversations.some(
-          (conv) => conv.id === conversationId,
-        );
-
-        const updatedConversations = state.conversations.map((conv) =>
-          conv.id === conversationId
-            ? {
-                ...conv,
-                last_message: newMessage,
-                updated_at: newMessage.created_at,
-                unread_count: 0,
-              }
-            : conv,
-        );
-
+      // 🌟 BƯỚC 5 ĐÃ FIX: TRÁNH ĐỤNG ĐỘ VỚI STORE VÀ PUSHER
+      useChatStore.setState((chatState) => {
+        // 1. Gắp cái tin nhắn giả (optimistic) ném sọt rác
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cleanMessages = chatState.messages.filter((m) => m.id !== (fakeMsgId as any));
+        
+        // 2. Check xem thằng Zustand Store hoặc Pusher đã nhanh tay nhét tin thật vào mảng chưa?
+        // Đa số là nó nhét rồi, nếu chưa thì mình tự nhét chốt sổ.
+        const alreadyExists = cleanMessages.some((m) => m.id === responseData.id);
+        
         return {
-          conversations: exists
-            ? updatedConversations
-            : updatedSelect
-              ? [updatedSelect, ...state.conversations]
-              : state.conversations,
-          selectConversation: updatedSelect,
+          messages: alreadyExists ? cleanMessages : [...cleanMessages, responseData],
         };
       });
+
+      // Đồng bộ Sidebar giữ nguyên
+      useConversationStore.setState((convState) => ({
+        conversations: convState.conversations.map((c) => c.id === selectConversation.id ? { ...c, last_message: responseData } : c),
+        selectConversation: convState.selectConversation?.id === selectConversation.id ? { ...convState.selectConversation, last_message: responseData } : convState.selectConversation,
+      }));
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Gửi tin nhắn thất bại.");
-      }
+      // 🌟 BƯỚC 6 ĐÃ NÂNG CẤP: KHÔNG XOÁ TIN NỮA, GIỮ LẠI VÀ ĐÁNH DẤU BỊ LỖI
+      useChatStore.setState((chatState) => ({
+        messages: chatState.messages.map((m) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          m.id === (fakeMsgId as any) 
+            ? { ...m, isError: true } // 🚀 Bơm cờ báo lỗi vào đây!
+            : m
+        ),
+      }));
+      toast.error("Gửi tin nhắn thất bại.");
     }
   };
 
-  // Hàm xoá một tin nhắn cụ thể
+  // 🚀 OPTIMISTIC UI: XÓA TIN NHẮN (Biến mất ngay lập tức)
   const handleDeleteMessage = async (messageId: number) => {
     if (!selectConversation) return;
+
+    const previousMessages = store.messages;
+
+    // Cho bốc hơi khỏi màn hình trong 0ms
+    useChatStore.setState({
+      messages: previousMessages.filter((m) => m.id !== messageId),
+    });
 
     try {
       await store.deleteMessage(selectConversation.id, messageId);
       toast.success("Đã xóa tin nhắn.");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Xóa tin nhắn thất bại.");
-      }
+      // Lỗi mạng thì ói tin nhắn đó ra lại
+      useChatStore.setState({ messages: previousMessages });
+      toast.error("Xóa tin nhắn thất bại.");
     }
   };
 
   // Hàm xoá toàn bộ tin nhắn
   const handleAllDeleteMessages = async () => {
     if (!selectConversation) return;
-
-    if (!confirm(`Bạn có chắc muốn xóa toàn bộ tin nhắn với ${displayName}?`)) {
-      return;
-    }
+    if (!confirm(`Bạn có chắc muốn xóa toàn bộ tin nhắn với ${displayName}?`)) return;
 
     try {
       await store.deleteAllMessages(selectConversation.id);
       toast.success(`Đã xóa toàn bộ tin nhắn với ${displayName}.`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Xóa tin nhắn thất bại.");
-      }
+      toast.error("Xóa tin nhắn thất bại.");
     }
   };
 
-  // Hàm sửa tin nhắn (NẾU CÓ)
+  // 🚀 OPTIMISTIC UI: SỬA TIN NHẮN (Đổi chữ ngay lập tức)
   const handleEditMessage = async (messageId: number, content: string) => {
     if (!selectConversation) return;
 
+    const previousMessages = store.messages;
+
+    // Đổi chữ ngay trên RAM
+    useChatStore.setState({
+      messages: previousMessages.map((m) =>
+        m.id === messageId ? { ...m, content: content, edit_count: (m.edit_count || 0) + 1 } : m
+      ),
+    });
+
     try {
-      // Gọi sang store Zustand để nó lo phần Axios và đè State
       await store.editMessage(selectConversation.id, messageId, content);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Chỉnh sửa tin nhắn thất bại.");
-      }
+      // Lỗi thì nhả lại dòng text cũ
+      useChatStore.setState({ messages: previousMessages });
+      toast.error("Chỉnh sửa tin nhắn thất bại.");
     }
   };
 
   return {
     ...store,
-
     isGroup,
     partner,
     displayName,
     displayAvatar,
-
     handleSendMessage,
     handleDeleteMessage,
     handleAllDeleteMessages,

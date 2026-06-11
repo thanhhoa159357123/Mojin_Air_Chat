@@ -14,6 +14,8 @@ export interface IMessage {
     avatar: string | null;
   };
   conversation_id: number;
+  isError?: boolean;
+  id_fake?: string;
 }
 
 export interface IChatState {

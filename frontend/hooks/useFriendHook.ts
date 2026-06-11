@@ -1,3 +1,5 @@
+"use client";
+
 import { extractErrorMessage } from "@/lib/errorHandler";
 import { useFriendStore } from "@/stores/useFriendStore";
 import { toast } from "sonner";
@@ -5,35 +7,65 @@ import { toast } from "sonner";
 export const useFriendHook = () => {
   const store = useFriendStore();
 
-  // Hàm này sẽ gửi lời mời kết bạn
   const handleAddFriend = async (friendId: number) => {
     try {
       await store.addFriend(friendId);
       toast.success("Đã gửi lời mời kết bạn!");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error.message || "Thêm bạn thất bại. Thử lại nhé!");
       throw error;
     }
   };
 
-  //   Hàm này sẽ chấp nhận lời mời kết bạn
+  // 🚀 OPTIMISTIC UI: CHẤP NHẬN KẾT BẠN TRONG 0ms
   const handleAcceptFriendRequest = async (friendId: number) => {
+    // 1. BACKUP DATA CŨ LẠI ĐỂ PHÒNG HỜ GỌI API LỖI THÌ ROLLBACK
+    const currentRequests = store.friendRequests;
+    const currentFriends = store.friends;
+
+    // 2. TÌM THẰNG BẠN ĐANG NẰM TRONG DANH SÁCH CHỜ
+    const targetRequest = currentRequests.find((req) => req.id === friendId);
+
+    if (targetRequest) {
+      // 3. HACK THỊ GIÁC: XÓA NÓ KHỎI LIST CHỜ VÀ BÊ SANG LIST BẠN BÈ TRÊN RAM NGAY LẬP TỨC (0ms)
+      useFriendStore.setState({
+        friendRequests: currentRequests.filter((req) => req.id !== friendId),
+        friends: [...currentFriends, targetRequest],
+      });
+    }
+
     try {
+      // 4. ÂM THẦM GỌI API Ở DƯỚI GẦM GIƯỜNG
       await store.acceptFriendRequest(friendId);
-      await store.getFriends();
+      // Gọi ngầm lấy danh sách chuẩn xịn từ Server về đè lại một lần nữa cho chắc cốp
+      store.getFriends().catch(() => {});
       toast.success("Chúc mừng 2 người đã trở thành bạn!");
     } catch (error) {
+      // 5. LỖI MẠNG? ROLLBACK LẠI NHƯ CHƯA HỀ CÓ CUỘC CHIA LY!
+      useFriendStore.setState({
+        friendRequests: currentRequests,
+        friends: currentFriends,
+      });
       toast.error("Chấp nhận bạn bè thất bại. Thử lại nhé!");
       throw error;
     }
   };
 
-  // Hàm này sẽ từ chối lời mời kết bạn
+  // 🚀 OPTIMISTIC UI: TỪ CHỐI KẾT BẠN TRONG 0ms
   const handleRejectFriendRequest = async (friendId: number) => {
+    const currentRequests = store.friendRequests;
+
+    // Ẩn ngay lập tức khỏi màn hình (0ms)
+    useFriendStore.setState({
+      friendRequests: currentRequests.filter((req) => req.id !== friendId),
+    });
+
     try {
       await store.rejectFriendRequest(friendId);
     } catch (error) {
+      // Lỗi thì ói nó ra lại màn hình
+      useFriendStore.setState({ friendRequests: currentRequests });
       toast.error("Từ chối bạn bè thất bại. Thử lại nhé!");
       throw error;
     }

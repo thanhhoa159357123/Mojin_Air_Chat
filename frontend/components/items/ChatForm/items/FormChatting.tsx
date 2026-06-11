@@ -1,6 +1,7 @@
 "use client";
 
 import { IMessage } from "@/types/message";
+import Image from "next/image";
 import { ArrowDown, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,10 +13,11 @@ import { getFileNameFromUrl } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useChatStore } from "@/stores/useChatStore";
 import { useChatFormHook } from "../hooks/useChatFormHook";
-import { IConversation } from "@/types/conversation";
+import { IConversation, IPartner } from "@/types/conversation";
 
 interface FormChattingProps {
   selectConversation: IConversation | null; // 💡 NHẬN SELECT CONVERSATION TỪ CHA
+  partner: IPartner | null; // 💡 NHẬN PARTNER TỪ CHA
   setReplyingTo: (msg: IMessage | null) => void;
   setChatDeleteMessageId: (id: number | null) => void;
   setIsVisibleNotificationDeleteMessage: (visible: boolean) => void;
@@ -23,6 +25,7 @@ interface FormChattingProps {
 }
 
 const FormChatting = ({
+  partner,
   setReplyingTo,
   setChatDeleteMessageId,
   setIsVisibleNotificationDeleteMessage,
@@ -31,7 +34,7 @@ const FormChatting = ({
 }: FormChattingProps) => {
   const { typingUser } = useChatFormHook();
   const user = useAuthStore((state) => state.user); // 💡 LẤY THÊM STATE TỪ STORE
-  const { messages, hasMore, loadingMore, page, fetchMessages } =
+  const { messages, hasMore, loading, loadingMore, page, fetchMessages } =
     useChatStore();
 
   const handleLoadMore = () => {
@@ -93,7 +96,14 @@ const FormChatting = ({
             </div>
           </div>
         )}
-        {messages.length > 0 ? (
+        {loading && messages.length === 0 ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3 opacity-60">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground font-medium">
+              Đang tải tin nhắn...
+            </p>
+          </div>
+        ) : messages.length > 0 ? (
           /* 1. TRƯỜNG HỢP CÓ TIN NHẮN: MAP RA UI */
           messages.map((msg, index) => {
             if (msg.type === "system") {
@@ -121,6 +131,13 @@ const FormChatting = ({
               index < messages.length - 1 &&
               messages[index + 1].user_id !== msg.user_id;
 
+            const liveAvatarUrl =
+              selectConversation?.type !== "group" && partner && partner.avatar
+                ? partner.avatar
+                : msg.sender?.avatar
+                  ? msg.sender.avatar
+                  : null;
+
             const showSenderName =
               isThem &&
               (index === 0 || messages[index - 1].user_id !== msg.user_id);
@@ -146,12 +163,25 @@ const FormChatting = ({
                 key={msg.id}
                 className={`flex items-end gap-2 group ${!isThem ? "flex-row-reverse" : "flex-row"} ${isNewCluster ? "mb-4" : "mb-0.5"}`}
               >
-                {/* AVATAR */}
+                {/* AVATAR BÊN CẠNH TIN NHẮN */}
                 {isThem && (
-                  <div className="size-8 flex-none">
+                  <div className="size-8 flex-none mb-1">
                     {showAvatar ? (
-                      <div className="size-8 rounded-full bg-primary shadow-sm flex items-center justify-center text-[10px] text-primary-foreground uppercase mb-1">
-                        {getFallbackLetter()}
+                      <div className="size-8 rounded-full bg-primary/10 border border-primary/20 shadow-md flex items-center justify-center text-[10px] text-primary font-bold uppercase overflow-hidden">
+                        {/* 💡 BẢO BỐI 2: Nếu có liveAvatarUrl xịn thì táng Next Image bọc relative, không thì hiện chữ viết tắt */}
+                        {liveAvatarUrl ? (
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={liveAvatarUrl}
+                              alt="avatar"
+                              fill
+                              sizes="32px"
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <span>{getFallbackLetter()}</span>
+                        )}
                       </div>
                     ) : (
                       <div className="size-8" />

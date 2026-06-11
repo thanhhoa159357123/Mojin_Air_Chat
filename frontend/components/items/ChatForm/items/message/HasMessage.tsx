@@ -1,16 +1,18 @@
 "use client";
 
 import { IMessage } from "@/types/message";
-import { Edit2, Reply, Smile, Trash2 } from "lucide-react";
+import { Edit2, Reply, Smile, Trash2, AlertCircle } from "lucide-react"; // 💡 Thêm AlertCircle
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IConversation } from "@/types/conversation";
 import Image from "next/image";
+import { useChatStore } from "@/stores/useChatStore";
+import { useChatHook } from "@/hooks/useChatHook";
 
 interface HasMessageProps {
   isThem: boolean | null;
   msg: IMessage;
   messages: IMessage[];
-  selectConversation: IConversation | null; // 💡 ĐỔI KIỂU CHUẨN SANG ICONVERSATION
+  selectConversation: IConversation | null;
   showSenderName: boolean;
   setPreviewImage: (url: string | null) => void;
   setReplyingTo: (msg: IMessage | null) => void;
@@ -34,6 +36,7 @@ const HasMessage = ({
   startEditing,
 }: HasMessageProps) => {
   const user = useAuthStore((state) => state.user);
+  const { handleSendMessage } = useChatHook(selectConversation);
 
   const senderName = msg.sender
     ? `${msg.sender.last_name} ${msg.sender.first_name}`.trim()
@@ -44,7 +47,6 @@ const HasMessage = ({
     if (typeof contentData === "string") {
       try {
         return JSON.parse(contentData);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         return { text: contentData, images: [], files: [] };
       }
@@ -72,7 +74,6 @@ const HasMessage = ({
 
           const isParentMe = parentMsg.user_id === user?.id;
 
-          // 💡 ĐỒNG BỘ LOGIC LẤY TÊN ĐỐI PHƯƠNG KHI REPLY
           const getTargetFirstName = (targetMsg: IMessage) => {
             if (targetMsg.sender?.first_name)
               return targetMsg.sender.first_name;
@@ -137,30 +138,36 @@ const HasMessage = ({
             msg.type === "text" || msg.type === "mixed" ? "px-4 py-2" : ""
           } ${
             !isThem
-              ? `${msg.type === "text" || msg.type === "mixed" ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm shadow-sm" : ""}`
-              : `${msg.type === "text" || msg.type === "mixed" ? "bg-secondary text-secondary-foreground rounded-2xl rounded-bl-sm border border-border shadow-sm" : ""}`
+              ? msg.type === "text" || msg.type === "mixed"
+                ? msg.isError
+                  ? "bg-destructive/15 text-destructive rounded-2xl rounded-br-sm border border-destructive/30 shadow-xs" // 🚨 MỚI: BÊN MÌNH GỬI LỖI -> ĐỔI SANG ĐỎ NHẠT KHÔNG KHƯNG UI
+                  : "bg-linear-to-br from-primary to-forest-dark text-white rounded-2xl rounded-br-sm shadow-md"
+                : ""
+              : msg.type === "text" || msg.type === "mixed"
+                ? "bg-linear-to-br from-matcha-dark to-forest-darker text-white rounded-2xl rounded-bl-sm border border-(--forest-darker)/30 shadow-sm"
+                : ""
           }`}
         >
           {msg.type === "image" ? (
-            <div className="relative group/image">
+            <div className={`relative group/image ${msg.isError ? "opacity-40 border border-destructive rounded-lg" : ""}`}>
               <Image
                 src={msg.content}
                 alt="Image"
                 className="max-w-62.5 max-h-62.5 rounded-lg border border-border/50 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => setPreviewImage(msg.content)}
+                onClick={() => !msg.isError && setPreviewImage(msg.content)}
                 width={200}
                 height={200}
               />
             </div>
           ) : msg.type === "file" ? (
             <div
-              className={`p-4 rounded-xl flex items-center justify-between gap-4 max-w-62.5 overflow-hidden ${!isThem ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary border border-border rounded-bl-sm"}`}
+              className={`p-4 rounded-xl flex items-center justify-between gap-4 max-w-62.5 overflow-hidden ${msg.isError ? "bg-destructive/15 text-destructive border border-destructive/20 rounded-br-sm" : !isThem ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary border border-border rounded-bl-sm"}`}
             >
               <a
-                href={`${msg.content}?download=`}
+                href={msg.isError ? undefined : `${msg.content}?download=`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-3 w-full hover:underline truncate"
+                className={`flex items-center gap-3 w-full truncate ${msg.isError ? "pointer-events-none" : "hover:underline"}`}
               >
                 <span
                   className="text-sm font-medium truncate shrink min-w-0"
@@ -178,17 +185,15 @@ const HasMessage = ({
                 </span>
               )}
 
-              {/* 1. Text chữ */}
               {currentContent.text && (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word px-0.5">
                   {currentContent.text}
                 </p>
               )}
 
-              {/* 2. Lưới ảnh Grid */}
               {currentContent.images && currentContent.images.length > 0 && (
                 <div
-                  className={`grid gap-1 mt-0.5 rounded-lg overflow-hidden ${
+                  className={`grid gap-1 mt-0.5 rounded-lg overflow-hidden ${msg.isError ? "opacity-40" : ""} ${
                     currentContent.images.length === 1
                       ? "grid-cols-1"
                       : currentContent.images.length === 2
@@ -208,25 +213,24 @@ const HasMessage = ({
                       }`}
                       width={100}
                       height={100}
-                      onClick={() => setPreviewImage(url)}
+                      onClick={() => !msg.isError && setPreviewImage(url)}
                     />
                   ))}
                 </div>
               )}
 
-              {/* 3. Đính kèm File tài liệu */}
               {currentContent.files && currentContent.files.length > 0 && (
                 <div className="flex flex-col gap-1 mt-0.5">
                   {currentContent.files.map((url: string, idx: number) => (
                     <div
                       key={idx}
-                      className={`p-2.5 rounded-lg flex items-center gap-2 border overflow-hidden ${!isThem ? "bg-black/10 border-white/10 text-white" : "bg-background border-border text-foreground"}`}
+                      className={`p-2.5 rounded-lg flex items-center gap-2 border overflow-hidden ${msg.isError ? "bg-destructive/5 border-destructive/20 text-destructive" : !isThem ? "bg-black/10 border-white/10 text-white" : "bg-background border-border text-foreground"}`}
                     >
                       <a
-                        href={`${url}?download=`}
+                        href={msg.isError ? undefined : `${url}?download=`}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-2 w-full hover:underline truncate text-xs font-medium"
+                        className={`flex items-center gap-2 w-full truncate text-xs font-medium ${msg.isError ? "pointer-events-none" : "hover:underline"}`}
                       >
                         <span
                           className="truncate shrink min-w-0"
@@ -242,7 +246,6 @@ const HasMessage = ({
             </div>
           ) : (
             <div className="flex flex-col">
-              {/* 💡 HIỂN THỊ TAG SỬA CHO TEXT THUẦN */}
               {msg.edit_count > 0 && (
                 <span className="text-[10px] text-primary-foreground/70 italic self-end mt-0.5">
                   (Đã chỉnh sửa)
@@ -256,43 +259,69 @@ const HasMessage = ({
           )}
         </div>
 
-        {/* ACTION BUTTONS */}
-        <div
-          className={`flex items-center gap-0.5 invisible group-hover:visible transition-all duration-200 text-muted-foreground shrink-0 ${!isThem ? "flex-row-reverse" : "flex-row"}`}
-        >
-          <button className="p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
-            <Smile className="size-4 font-bold" />
-          </button>
-          <button
-            onClick={() => setReplyingTo(msg)}
-            className="p-1 hover:bg-muted rounded-full transition-colors cursor-pointer"
+        {/* ACTION BUTTONS (❌ Không cho Sửa/Reply nếu tin nhắn đang bị lỗi) */}
+        {!msg.isError && (
+          <div
+            className={`flex items-center gap-0.5 invisible group-hover:visible transition-all duration-200 text-muted-foreground shrink-0 ${!isThem ? "flex-row-reverse" : "flex-row"}`}
           >
-            <Reply className="size-4 font-bold" />
-          </button>
-          {/* 💡 NÚT SỬA TIN NHẮN (Chỉ hiện khi là tin của mình, không phải hệ thống, không phải hình/file đơn thuần) */}
-          {!isThem &&
-            msg.type !== "system" &&
-            msg.type !== "image" &&
-            msg.type !== "file" && (
-              <button
-                onClick={() => startEditing(msg)}
-                title="Chỉnh sửa tin nhắn"
-                className="p-1 hover:bg-primary/10 hover:text-primary rounded-full transition-colors cursor-pointer"
-              >
-                <Edit2 className="size-4 font-bold" />
-              </button>
-            )}
-          <button
-            onClick={() => {
-              setChatDeleteMessageId(msg.id);
-              setIsVisibleNotificationDeleteMessage(true);
-            }}
-            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-full transition-colors cursor-pointer"
-          >
-            <Trash2 className="size-4 font-bold" />
-          </button>
-        </div>
+            <button className="p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
+              <Smile className="size-4 font-bold" />
+            </button>
+            <button
+              onClick={() => setReplyingTo(msg)}
+              className="p-1 hover:bg-muted rounded-full transition-colors cursor-pointer"
+            >
+              <Reply className="size-4 font-bold" />
+            </button>
+            {!isThem &&
+              msg.type !== "system" &&
+              msg.type !== "image" &&
+              msg.type !== "file" && (
+                <button
+                  onClick={() => startEditing(msg)}
+                  title="Chỉnh sửa tin nhắn"
+                  className="p-1 hover:bg-primary/10 hover:text-primary rounded-full transition-colors cursor-pointer"
+                >
+                  <Edit2 className="size-4 font-bold" />
+                </button>
+              )}
+            <button
+              onClick={() => {
+                setChatDeleteMessageId(msg.id);
+                setIsVisibleNotificationDeleteMessage(true);
+              }}
+              className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-full transition-colors cursor-pointer"
+            >
+              <Trash2 className="size-4 font-bold" />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* 🚨 DÒNG TEXT BÁO LỖI: BIẾN THÀNH NÚT BẤM GỬI LẠI SIÊU CẤP VIP PRO */}
+      {msg.isError && (
+        <button 
+          onClick={() => {
+            // 1. Cho tin nhắn này quay lại trạng thái đang gửi (Hết lỗi)
+            useChatStore.setState((state) => ({
+              messages: state.messages.map((m) => m.id === msg.id ? { ...m, isError: false } : m)
+            }));
+            
+            // 2. Kích hoạt hàm gửi lại chính cái nội dung này
+            handleSendMessage(msg.content, msg.parent_id, msg.type);
+            
+            // 3. Xoá mẹ cái tin nhắn lỗi cũ này đi vì hàm handleSendMessage ở trên nó sẽ tự đẻ ra 1 cái tin optimistic mới tinh tiếp theo!
+            useChatStore.setState((state) => ({
+              messages: state.messages.filter((m) => m.id !== msg.id)
+            }));
+          }}
+          className="flex items-center gap-1 text-[11px] text-destructive font-medium mt-0.5 pr-1 hover:underline cursor-pointer group active:scale-95 transition-transform animate-in fade-in duration-200"
+          title="Bấm để gửi lại tin nhắn"
+        >
+          <AlertCircle className="size-3.5 animate-pulse" />
+          <span>Gửi lỗi. <strong className="text-primary hover:text-primary/80">Thử lại?</strong></span>
+        </button>
+      )}
     </div>
   );
 };

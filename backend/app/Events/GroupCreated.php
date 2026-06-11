@@ -6,12 +6,12 @@ use App\Models\Conversation;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-// Thêm cái "implements ShouldBroadcastNow" để nó bắn ngay lập tức không cần chờ Queue
-class GroupCreated implements ShouldBroadcastNow
+// Thêm cái "implements ShouldBroadcast" để nó bắn ngay lập tức không cần chờ Queue
+class GroupCreated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

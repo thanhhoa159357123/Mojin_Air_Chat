@@ -30,7 +30,6 @@ export const useFriendPolling = () => {
     // 3. Bắt sự kiện tin nhắn mới đổ về đa kênh
     channel.bind("new-message", (data: { message: IMessage }) => {
       const msg = data.message;
-      console.log("🛰️ [useFriendPolling] Bắt được tín hiệu:", msg);
 
       const conversationStore = useConversationStore.getState();
       const currentConversations = conversationStore.conversations;
@@ -42,9 +41,13 @@ export const useFriendPolling = () => {
       );
 
       const isRealRoom = selectConversation?.id === msg.conversation_id;
+
       const isFakeRoom =
         selectConversation?.type === "private" &&
+        selectConversation?.is_virtual && // Phải là phòng ảo
+        msg.type === "private" &&         // Tin nhắn phải là tin 1-1, đéo được húp tin group!
         selectConversation.id === msg.user_id;
+
       const isViewing = isRealRoom || isFakeRoom;
 
       if (!roomExists) {
@@ -57,6 +60,8 @@ export const useFriendPolling = () => {
           // 💡 Nếu mình tình cờ đang bấm xem "phòng ảo" của họ, nâng cấp lên phòng thật
           if (
             selectConversation?.type === "private" &&
+            selectConversation?.is_virtual &&
+            msg.type === "private" &&
             selectConversation.id === msg.user_id
           ) {
             const freshConversations =
@@ -110,8 +115,6 @@ export const useFriendPolling = () => {
     channel.bind(
       "friend-accepted",
       (data: { friend_id: number; friend_data: IFriend }) => {
-        console.log("🔔 Có bạn mới (Không gọi API):", data.friend_data);
-
         const friendStore = useFriendStore.getState();
         const currentFriends = friendStore.friends;
 
@@ -132,7 +135,7 @@ export const useFriendPolling = () => {
     // 💡 GIẢI NGHIỆP: Tắt kết nối khi đóng ứng dụng
     return () => {
       channel.unbind_all();
-      // channel.unsubscribe();
+      pusherClient.unsubscribe(channelName);
     };
   }, [
     fetchConversations,

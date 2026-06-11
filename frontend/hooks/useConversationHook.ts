@@ -81,6 +81,5 @@ export const useConversationHook = () => {
     handleAddParticipants,
     handleFetchParticipants,
     handleRemoveParticipants,
-    addConversationToState: store.addConversationToState,
   };
 };

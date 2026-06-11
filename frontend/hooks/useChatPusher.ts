@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { pusherClient } from "@/lib/pusher";
 import { useChatStore } from "@/stores/useChatStore";
 import { IMessage } from "@/types/message";
@@ -9,6 +9,10 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useConversationStore } from "@/stores/useConversationStore";
 
 export const useChatPusher = (selectConversation: IConversation | null) => {
+  
+  // 🚀 Ổ 2: KHÓA VAN DEBOUNCE BÁO ĐÃ XEM
+  const readTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (!selectConversation?.id) return;
     if (
@@ -19,25 +23,27 @@ export const useChatPusher = (selectConversation: IConversation | null) => {
     }
 
     const conversationId = selectConversation.id;
-
     const channelName = `chat-room.${conversationId}`;
 
     const channel = pusherClient.subscribe(channelName);
 
     channel.bind("new-message", (data: { message: IMessage }) => {
-      console.log(
-        "🔥 [useChatPusher] Đã bắt được tin mới tại khung chat chính:",
-        data.message,
-      );
-
       useChatStore.setState((state) => {
-        // 💡 Dùng callback (state) =>
         const incomingId = Number(data.message.id);
         if (state.messages.some((m) => Number(m.id) === incomingId)) {
-          return state; // Không thay đổi gì cả
+          return state; 
         }
-        return { messages: [...state.messages, data.message] }; // State lấy từ callback là mới nhất
+        return { messages: [...state.messages, data.message] }; 
       });
+
+      // 💡 BÍ THUẬT DEBOUNCE: Gộp 100 tin nhắn thành 1 lệnh báo đã xem duy nhất!
+      if (readTimeoutRef.current) {
+        clearTimeout(readTimeoutRef.current);
+      }
+      // Đợi đúng 1.5 giây sau khi tin nhắn cuối cùng đáp xuống mới rón rén báo "Đã xem"
+      readTimeoutRef.current = setTimeout(() => {
+        useConversationStore.getState().markConversationRead(conversationId).catch(() => {});
+      }, 1500); 
     });
 
     channel.bind(
@@ -54,14 +60,11 @@ export const useChatPusher = (selectConversation: IConversation | null) => {
         const userId = data.user_id ?? data.userId;
         const lastReadAt = data.last_read_at ?? data.lastReadAt;
 
-        if (!conversationId || !userId || !lastReadAt) {
-          return;
-        }
+        if (!conversationId || !userId || !lastReadAt) return;
 
         useConversationStore.setState((state) => {
           const updateParticipant = (conv: IConversation) => {
             if (!conv.participants) return conv;
-
             return {
               ...conv,
               participants: conv.participants.map((p) =>
@@ -95,66 +98,45 @@ export const useChatPusher = (selectConversation: IConversation | null) => {
       },
     );
 
-    // 🚀 CỔNG 2: NHẬN LỆNH XÓA TIN NHẮN TỪ ĐỐI PHƯƠNG
     channel.bind(
       "message-deleted",
-      (data: { message_id: number; type: string }) => {
-        // 💡 Sửa thành message_id
-        console.log(
-          "🗑️ [useChatPusher] Đối phương vừa tác động xóa tin nhắn:",
-          data.message_id,
-        );
-
+      (data: { message_id: number; type: string; conversation_id: number }) => {
         const chatStore = useChatStore.getState();
         const currentMessages = chatStore.messages;
 
-        if (data.type === "unsend") {
-          // 💡 Ép kiểu data.message_id về dạng Number để hàm !== hoạt động đúng
+        if (data.type === "delete_for_all") {
           const targetId = Number(data.message_id);
-
           const updatedMessages = currentMessages.filter(
             (msg) => msg.id !== targetId,
           );
           useChatStore.setState({ messages: updatedMessages });
+        } 
+        else if (data.type === "clear_history") {
+          useChatStore.setState({ messages: [] });
         }
-        // Note: Nếu data.type === 'delete_for_me' tức là đối phương bấm xóa tin của mình gửi (Tin số 3)
-        // Thì bên máy mình kệ họ, không thèm filter, màn hình mình vẫn giữ nguyên tin đó!
       },
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     channel.bind("user-typing", (data: any) => {
-      console.log("✍️ Đang gõ phím:", data);
-
-      // Không tự báo cho chính mình
       if (data.user.id !== useAuthStore.getState().user?.id) {
         useChatStore.setState({ typingUser: data.user.full_name });
 
-        // Sau 3 giây tự tắt chữ "đang gõ..."
         setTimeout(() => {
           useChatStore.setState({ typingUser: null });
         }, 3000);
       }
     });
 
-    // 🚀 CỔNG 3: NHẬN LỆNH SỬA TIN NHẮN TỪ ĐỐI PHƯƠNG (DÙNG PURE PUSHER TRỰC TIẾP)
     channel.bind(
-      "MessageEdited", // 💡 Nhắc lại: Tên này phải khớp 100% với hàm broadcastAs() bên Laravel
+      "MessageEdited",
       (data: { message: IMessage }) => {
-        console.log(
-          "📝 [useChatPusher] Bắt quả tang tin nhắn vừa bị sửa (Realtime):",
-          data.message,
-        );
-
-        // Đục thẳng vào State của useChatStore bằng callback để lấy mảng mới nhất
         useChatStore.setState((state) => {
           const targetId = Number(data.message.id);
-
           return {
-            // Duyệt qua mảng messages hiện tại, tìm con ID bị sửa để đè nguyên con data mới từ BE dội về
             messages: state.messages.map((msg) =>
               Number(msg.id) === targetId
-                ? { ...msg, ...data.message } // Đè content mới và cả edit_count mới luôn
+                ? { ...msg, ...data.message } 
                 : msg,
             ),
           };
@@ -162,11 +144,12 @@ export const useChatPusher = (selectConversation: IConversation | null) => {
       },
     );
 
-    // 💡 BẢO BỐI GIẢI NGHIỆP: User chuyển phòng chat phát là dọn dẹp sạch sẽ
     return () => {
       channel.unbind_all();
-      // channel.unsubscribe();
+      pusherClient.unsubscribe(channelName);
+      // Dọn sạch timer đếm ngược nếu user thoát phòng sớm
+      if (readTimeoutRef.current) clearTimeout(readTimeoutRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectConversation?.id]); // Lắng nghe theo sự thay đổi ID của phòng đang chọn
+  }, [selectConversation?.id]); 
 };

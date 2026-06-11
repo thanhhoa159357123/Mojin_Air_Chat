@@ -29,22 +29,16 @@ class Message extends Model
      */
     public function getContentAttribute($value)
     {
-        // 1. Nhận diện ngữ cảnh trực tiếp từ Request API đang gọi
-        $request = request();
-
         // Nếu URL chứa cụm từ api/messages/{id} (Xem chi tiết tin nhắn trong khung chat)
         // Hoặc kiểm tra xem controller action có phải là getMessages hay không
-        $isChatScene = $request->is('*api/messages/*') || ($request->route() && str_contains($request->route()->getActionName(), 'getMessages'));
+        $isChatScene = request()->is('api/messages*');
 
-        // 🚀 NGỮ CẢNH 1: Load khung chat chi tiết -> Phải trả về Object/Array cho FE render lưới ảnh
         if ($isChatScene) {
             if ($this->type === 'mixed' || $this->type === 'image' || $this->type === 'file') {
-                // Nếu là chuỗi JSON thì decode ra thành mảng/object cho FE dùng, nếu không thì giữ nguyên
                 return is_string($value) ? json_decode($value, true) : $value;
             }
             return $value;
         }
-
         // 🚀 NGỮ CẢNH 2: Tự động gọt tỉa câu chữ preview cho Sidebar / Friendlist ngắn gọn
         // Đề phòng trường hợp dữ liệu truyền vào đã là mảng (do Laravel tự cast) hoặc chuỗi JSON thô
         $data = is_string($value) ? json_decode($value, true) : $value;

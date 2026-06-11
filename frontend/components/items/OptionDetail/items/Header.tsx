@@ -39,8 +39,8 @@ const Header = ({ selectConversation }: HeaderProps) => {
               </span>
             )}
           </div>
-          {selectConversation && (
-            <span className="absolute bottom-1 right-1 size-4 bg-emerald-500 rounded-full ring-2 ring-background animate-pulse" />
+          {selectConversation && !isGroup && partner?.status === "online" && (
+            <span className="absolute bottom-1 right-1 size-4 bg-emerald-500 rounded-full ring-2 ring-offset-0 ring-background shadow-sm animate-in fade-in zoom-in duration-300" />
           )}
         </div>
         <div className="text-center mt-3">

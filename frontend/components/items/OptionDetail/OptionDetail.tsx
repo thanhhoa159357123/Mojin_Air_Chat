@@ -20,7 +20,6 @@ const OptionDetail = ({
   const selectConversation = useConversationStore(
     (state) => state.selectConversation,
   );
-  console.log("conversation: ", selectConversation);
   const type = selectConversation?.type;
   const [isOpenSettingChat, setIsOpenSettingChat] = useState(false);
   const [isOpenMedia, setIsOpenMedia] = useState(false);

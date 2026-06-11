@@ -15,7 +15,6 @@ import { useInputRefHook } from "../hooks/useInputRefHook";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useConversationStore } from "@/stores/useConversationStore"; // 💡 RƯỚC CHÂN LÝ MỚI VÀO ĐÂY
 import { useRef } from "react";
-import { sendTypingSignal } from "@/services/conversationService";
 
 interface FormInputProps {
   inputHookData: ReturnType<typeof useInputRefHook>;
@@ -32,11 +31,9 @@ const FormInput = ({ inputHookData, handleSendMessage }: FormInputProps) => {
     (state) => state.selectConversation,
   );
   const user = useAuthStore((state) => state.user);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // BÓC TÁCH STATE TỪ NGUỒN CHÂN LÝ DUY NHẤT (Thằng cha truyền xuống)
   const {
     inputValue,
-    setInputValue,
     replyingTo,
     setReplyingTo,
     handleSend,
@@ -48,9 +45,9 @@ const FormInput = ({ inputHookData, handleSendMessage }: FormInputProps) => {
     attachments,
     removeAttachment,
     textAreaRef,
+    handleTextChange,
 
     editingMessage, // <--- Bơm ra
-    startEditing, // <--- Bơm ra
     cancelEditing, // <--- Bơm ra
   } = inputHookData;
 
@@ -98,7 +95,7 @@ const FormInput = ({ inputHookData, handleSendMessage }: FormInputProps) => {
           </button>
         </div>
       )}
-      
+
       {/* 1. KHU VỰC REPLY PREVIEW */}
       {replyingTo && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-foreground/5 mx-2 mt-2 rounded-t-xl">
@@ -203,21 +200,7 @@ const FormInput = ({ inputHookData, handleSendMessage }: FormInputProps) => {
         <textarea
           ref={textAreaRef}
           value={inputValue}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = `${e.target.scrollHeight}px`;
-
-            // 💡 2. THÊM LOGIC BÁO TYPING VÀO ĐÂY
-            if (selectConversation?.id && !typingTimeoutRef.current) {
-              sendTypingSignal(selectConversation.id).catch(() => {});
-
-              // Khóa mỏm lại, 3 giây sau mới được báo tiếp
-              typingTimeoutRef.current = setTimeout(() => {
-                typingTimeoutRef.current = null;
-              }, 3000);
-            }
-          }}
+          onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Nhập tin nhắn... (Shift + Enter để xuống dòng)"

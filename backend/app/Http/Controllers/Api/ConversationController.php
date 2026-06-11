@@ -52,7 +52,20 @@ class ConversationController extends Controller
             ->orderByDesc('updated_at') // Cuộc trò chuyện nào có tin nhắn mới thì trồi lên đầu
             ->get();
 
-        $conversations->each(function ($conversation) use ($user, $participantMeta) {
+        // 💡 FIX LỖI SỐ 4 (N+1 Query): Lấy toàn bộ tin nhắn chưa đọc của TẤT CẢ các phòng trong 1 Query
+        $conversationIds = $conversations->pluck('id')->toArray();
+        $allUnreadMessages = Message::whereIn('conversation_id', $conversationIds)
+            ->where('user_id', '!=', $user->id)
+            ->where(function ($query) use ($user) {
+                $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
+                    ->orWhereNull('deleted_by_ids');
+            })
+            ->get(['id', 'conversation_id', 'created_at']);
+
+        $unreadGrouped = $allUnreadMessages->groupBy('conversation_id');
+
+        // Phân bổ và tính toán dữ liệu cho từng phòng
+        $conversations->each(function ($conversation) use ($user, $participantMeta, $unreadGrouped) {
             $meta = $participantMeta->get($conversation->id);
             $lastReadAt = $meta?->last_read_at ? Carbon::parse($meta->last_read_at) : null;
             $clearedAt = $meta?->cleared_at ? Carbon::parse($meta->cleared_at) : null;
@@ -64,25 +77,23 @@ class ConversationController extends Controller
                 $threshold = $lastReadAt ?? $clearedAt;
             }
 
-            // 🚀 BÍ THUẬT TRIỆT TIÊU MA: Nếu tin nhắn cuối cùng được tạo TRƯỚC mốc dọn lịch sử (cleared_at)
-            // thì ép cái relation lastMessage về null ngay lập tức, dọn sạch preview sidebar!
+            // BÍ THUẬT TRIỆT TIÊU MA: Ẩn tin nhắn cuối nếu đã bị dọn lịch sử
             if ($clearedAt && $conversation->lastMessage) {
                 if (Carbon::parse($conversation->lastMessage->created_at)->lessThanOrEqualTo($clearedAt)) {
                     $conversation->setRelation('lastMessage', null);
                 }
             }
 
-            // Logic tính số tin nhắn chưa đọc (Giữ nguyên vẹn logic đỉnh cao của bác)
-            $unreadCount = Message::where('conversation_id', $conversation->id)
-                ->where('user_id', '!=', $user->id)
-                ->when($threshold, function ($query) use ($threshold) {
-                    $query->where('created_at', '>', $threshold);
-                })
-                ->where(function ($query) use ($user) {
-                    $query->whereJsonDoesntContain('deleted_by_ids', $user->id)
-                        ->orWhereNull('deleted_by_ids');
-                })
-                ->count();
+            // 💡 Đếm tin nhắn từ RAM, không chọc SQL nữa!
+            $unreadCount = 0;
+            if ($unreadGrouped->has($conversation->id)) {
+                $messagesInRoom = $unreadGrouped->get($conversation->id);
+                if ($threshold) {
+                    $unreadCount = $messagesInRoom->where('created_at', '>', $threshold)->count();
+                } else {
+                    $unreadCount = $messagesInRoom->count();
+                }
+            }
 
             $conversation->unread_count = $unreadCount;
         });
@@ -270,12 +281,12 @@ class ConversationController extends Controller
 
         $actorId = $request->user()->id;
 
-        $isParticipant = DB::table('participants')
+        $actorRecord = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $actorId)
-            ->exists();
+            ->first();
 
-        if (!$isParticipant) {
+        if (!$actorRecord) {
             return response()->json([
                 'message' => 'Bạn không có quyền truy cập phòng chat này.'
             ], 403);
@@ -287,7 +298,20 @@ class ConversationController extends Controller
         }
 
         $targetIdsInput = array_values(array_unique(array_map('intval', $targetIdsInput ?? [])));
-        $targetIdsInput = array_values(array_diff($targetIdsInput, [$actorId]));
+        
+        // 💡 FIX LỖI SỐ 3: Tách biệt logic Tự rời nhóm và Kick người khác
+        $isSelfLeaving = count($targetIdsInput) === 1 && $targetIdsInput[0] === $actorId;
+
+        if (!$isSelfLeaving) {
+            if ($actorRecord->role !== 'creator' && $actorRecord->role !== 'admin') {
+                return response()->json(['message' => 'Chỉ trưởng nhóm mới có quyền xóa thành viên!'], 403);
+            }
+            // Không được tự kick chính mình trong lệnh kick số đông
+            $targetIdsInput = array_values(array_diff($targetIdsInput, [$actorId]));
+            if (count($targetIdsInput) === 0) {
+                return response()->json(['message' => 'Vui lòng chọn thành viên hợp lệ để xóa.'], 400);
+            }
+        }
 
         if (count($targetIdsInput) === 0) {
             return response()->json(['message' => 'Không thể tự xoá chính mình khỏi nhóm.'], 400);
@@ -302,25 +326,21 @@ class ConversationController extends Controller
 
         $conversation->participants()->detach($removeIds);
 
-        $removedUsers = User::whereIn('id', $removeIds)
-            ->get(['id', 'first_name', 'last_name']);
-
-        $removedNames = $removedUsers
-            ->map(fn($u) => trim($u->full_name))
-            ->filter()
-            ->values()
-            ->all();
-
-        $removedString = '';
-        if (count($removedNames) > 0) {
-            $removedString = implode(', ', $removedNames);
-        }
-
         $actorName = $request->user()->full_name;
-        $removedCount = count($removeIds);
-        $systemContent = $removedString !== ''
-            ? "{$actorName} đã mời {$removedString} rời nhóm"
-            : "{$actorName} đã mời {$removedCount} thành viên rời nhóm";
+
+        if ($isSelfLeaving) {
+            $systemContent = "{$actorName} đã rời khỏi nhóm";
+        } else {
+            $removedUsers = User::whereIn('id', $removeIds)->get(['id', 'first_name', 'last_name']);
+            $removedNames = $removedUsers->map(fn($u) => trim($u->full_name))->filter()->values()->all();
+            
+            $removedString = count($removedNames) > 0 ? implode(', ', $removedNames) : '';
+            $removedCount = count($removeIds);
+            
+            $systemContent = $removedString !== ''
+                ? "{$actorName} đã mời {$removedString} rời nhóm"
+                : "{$actorName} đã mời {$removedCount} thành viên rời nhóm";
+        }
 
         Message::create([
             'conversation_id' => $conversation->id,

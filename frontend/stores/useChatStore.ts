@@ -104,14 +104,29 @@ export const useChatStore = create<IChatState>((set) => ({
       // 💡 ĐÃ FIX TRỌNG TÂM Ở ĐÂY: Đảo lại đúng thứ tự API (conversationId trước, messageId sau)
       await deleteMessage(conversationId, messageId);
 
-      set((state) => ({
-        messages: state.messages.filter(
+      set((state) => {
+        const updatedMessages = state.messages.filter(
           (msg) => Number(msg.id) !== Number(messageId),
-        ), // 💡 Ép kiểu cho chắc
-      }));
+        ); // 💡 Ép kiểu cho chắc
 
-      // 🚀 KÍCH HOẠT BẢO BỐI: Xóa luôn tin nhắn ma ở Sidebar
-      useConversationStore.getState().fetchConversations();
+        useConversationStore.setState((convState) => {
+           // Lấy tin nhắn cuối cùng mới nhất sau khi đã xóa tin kia đi
+           const newLastMessage = updatedMessages.length > 0 
+                ? updatedMessages[updatedMessages.length - 1] 
+                : null;
+
+           return {
+             conversations: convState.conversations.map((conv) => 
+               conv.id === conversationId 
+                 ? { ...conv, last_message: newLastMessage }
+                 : conv
+             )
+           };
+        });
+
+        return { messages: updatedMessages };
+      });
+
     } catch (error: unknown) {
       // --- SỬA Ở ĐÂY ---
       const message = extractErrorMessage(error, "Xóa tin nhắn thất bại rồi!");

@@ -1,11 +1,9 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IAuthLogin, IAuthRegister } from "@/types/auth";
-import { useRouter } from "next/navigation"; // Hàng chính chủ NextJS
 import { toast } from "sonner";
 import { updateUserStatus } from "@/services/conversationService";
 
 export const useAuthHook = () => {
-  const router = useRouter();
   // Bốc thêm cái error từ store ra để vả vào Toast
   const store = useAuthStore();
 
@@ -13,7 +11,9 @@ export const useAuthHook = () => {
     try {
       await store.register(data);
       toast.success("Đăng ký thành công! Vào chat thôi bác.");
-      router.push("/"); // Đăng ký xong là "phi" thẳng vào việc
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     } catch (err: unknown) {
       // err lúc này chính là Error(message) được throw từ Store sang
       if (err instanceof Error) {
@@ -29,7 +29,9 @@ export const useAuthHook = () => {
       await store.login(data);
       toast.success("Chào mừng bác đã quay lại!");
       updateUserStatus("online").catch(() => {});
-      router.push("/");
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     } catch (err: unknown) {
       // Để là unknown nhé bác
       // Ép TS nhận diện err là instance của class Error
@@ -52,9 +54,9 @@ export const useAuthHook = () => {
       toast.dismiss(toastId);
 
       // Nước đi chí mạng: Dùng window.location để Middleware và Client đồng bộ lại từ đầu
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      // if (typeof window !== "undefined") {
+      //   window.location.href = "/login";
+      // }
     } catch (err: unknown) {
       console.error("Logout API lỗi nhưng vẫn tống về Login", err);
 

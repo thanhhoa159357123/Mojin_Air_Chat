@@ -15,15 +15,19 @@ import { useFriendHook } from "@/hooks/useFriendHook";
 import { useFriendPolling } from "@/hooks/useFriendPolling";
 import { usePopUpManager } from "@/hooks/usePopUpManager";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useConversationStore } from "@/stores/useConversationStore";
 import NonConversation from "@/components/NonConversation";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function Home() {
   const selectConversation = useConversationStore(
     (state) => state.selectConversation,
   );
+
+  // 💡 1. Bốc mắt thần và cờ loading ra
+  const { user, loading } = useAuthStore();
 
   useFriendPolling();
   const { isOpen, open, close } = usePopUpManager();
@@ -60,7 +64,7 @@ export default function Home() {
       </aside>
 
       {/* 2. List friend: Tỷ lệ 2.5, tối thiểu 320px để text không bị nghẹt */}
-      <aside className="flex-[2.5] min-w-[320px] bg-secondary rounded-xl flex flex-col border border-border shadow-md overflow-hidden">
+      <aside className="w-20 xl:flex-[2.5] xl:min-w-[320px] bg-secondary rounded-xl flex flex-col border border-border shadow-md overflow-hidden transition-all duration-300">
         <ListFriendAndGroup
           onToggleAddFriend={() => open("addFriend")}
           onToggleCreateGroup={() => open("createGroup")}

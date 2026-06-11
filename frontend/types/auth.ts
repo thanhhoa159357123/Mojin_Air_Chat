@@ -38,6 +38,7 @@ export interface IAuthResponse {
 
 export interface IAuthState {
   user: IUser | null;
+  accessToken: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;

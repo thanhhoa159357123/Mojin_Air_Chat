@@ -8,9 +8,27 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+
+    // 💡 Hàm Helper nội bộ: Dùng để gói Cookie cho đỡ phải viết đi viết lại
+    private function getRefreshTokenCookie($refreshToken)
+    {
+        return cookie(
+            'mojin_refresh_token', // Tên bánh quy
+            $refreshToken,         // Giá trị
+            7 * 24 * 60,           // Thời gian sống: 7 ngày (Tính bằng phút)
+            '/',                   // Path
+            null,                  // Domain
+            config('app.env') === 'production', // Secure: true nếu đang chạy HTTPS
+            true,                  // HttpOnly: TRUE -> Khoá chết JS Frontend, cấm ăn cắp!
+            false,                 // Raw
+            'Lax'                  // SameSite
+        );
+    }
+
     public function register(Request $request)
     {
         // Validate dữ liệu đầu vào
@@ -23,24 +41,20 @@ class AuthController extends Controller
             'password' => 'required|string|min:6|confirmed',
         ]);
 
-        Log::info("Dữ liệu đăng ký đã được xác thực: ", $validated);
-
         // Tạo user mới
         $user = User::create($validated);
 
-        Log::info("User mới đã được tạo: ", ['user_id' => $user->id, 'email' => $user->email]);
+        $accessToken = $user->createToken('access_token', ['*'], now()->addMinutes(15))->plainTextToken;
+        $refreshToken = $user->createToken('refresh_token', ['*'], now()->addDays(7))->plainTextToken;
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        Log::info("Token đã được tạo cho user: ", ['user_id' => $user->id, 'token' => $token]);
 
         // Trả về response
         return response()->json([
-            'access_token' => $token,
+            'access_token' => $accessToken,
             'token_type' => 'Bearer',
             'message' => 'Đăng ký thành công! Mời bạn vào phòng chat để kết nối với mọi người.',
             'user' => $user,
-        ], 201);
+        ], 201)->withCookie($this->getRefreshTokenCookie($refreshToken));
     }
 
     public function login(Request $request)
@@ -59,24 +73,90 @@ class AuthController extends Controller
             return response()->json(['message' => 'Mật khẩu không chính xác.'], 401);
         }
 
-        // Tạo token mới cho user
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // 💡 Xoá hết RefreshToken cũ đi cho an toàn (Tránh đẻ quá nhiều rác trong DB)
+        $user->tokens()->where('name', 'refresh_token')->delete();
+
+        // 💡 Đẻ sinh đôi Token
+        $accessToken = $user->createToken('access_token', ['*'], now()->addMinutes(15))->plainTextToken;
+        $refreshToken = $user->createToken('refresh_token', ['*'], now()->addDays(7))->plainTextToken;
 
         // Trả về response
         return response()->json([
-            'access_token' => $token,
+            'access_token' => $accessToken,
             'token_type' => 'Bearer',
             'message' => 'Đăng nhập thành công!',
             'user' => $user,
-        ], 200);
+        ], 200)->withCookie($this->getRefreshTokenCookie($refreshToken));
+    }
+
+    // 🚀 HÀM NÀY LÀ TUYỆT CHIÊU CUỐI: SILENT REFRESH (Xoay tua Token)
+    public function refresh(Request $request)
+    {
+        // 1. Móc cái bánh quy ở dưới đáy request lên
+        $refreshTokenRaw = $request->cookie('mojin_refresh_token');
+
+        if (!$refreshTokenRaw) {
+            return response()->json(['message' => 'Không tìm thấy Refresh Token. Hãy đăng nhập lại.'], 401);
+        }
+
+        // 2. Tìm trong CSDL xem token này có thật không, hay là đồ fake
+        $tokenInstance = PersonalAccessToken::findToken($refreshTokenRaw);
+
+        // 3. Nếu token fake, hoặc sai tên, hoặc đã hết hạn 7 ngày -> Đá văng!
+        if (!$tokenInstance || $tokenInstance->name !== 'refresh_token' || $tokenInstance->expires_at->isPast()) {
+            return response()->json(['message' => 'Token đã hết hạn hoặc không hợp lệ.'], 401);
+        }
+
+        $user = $tokenInstance->tokenable;
+
+        // 4. XOAY TUA: Huỷ mẹ cái RefreshToken cũ đi (Chống hacker trộm token xài lại)
+        $tokenInstance->delete();
+
+        // 5. Cấp lại một cặp vé mới tinh (Tịnh tiến thời gian lên tương lai)
+        $newAccessToken = $user->createToken('access_token', ['*'], now()->addMinutes(15))->plainTextToken;
+        $newRefreshToken = $user->createToken('refresh_token', ['*'], now()->addDays(7))->plainTextToken;
+
+        return response()->json([
+            'access_token' => $newAccessToken,
+            'user' => $user // Trả kèm user để Frontend cập nhật luôn nếu lỡ bị mất State
+        ], 200)->withCookie($this->getRefreshTokenCookie($newRefreshToken));
     }
 
     public function logout(Request $request)
     {
-        // Xóa token hiện tại của user
-        $request->user()->currentAccessToken()->delete();
+        // 1. Huỷ Access Token hiện tại (Vé ngắn hạn)
+        // Móc thẳng Bearer Token từ Header gửi lên để chém, đéo cần qua $user nữa
+        $accessTokenRaw = $request->bearerToken();
+        if ($accessTokenRaw) {
+            $accessToken = PersonalAccessToken::findToken($accessTokenRaw);
+            if ($accessToken) {
+                $accessToken->delete();
+            }
+        }
 
-        return response()->json(['message' => 'Đăng xuất thành công! Hẹn gặp lại bạn trong phòng chat!'], 200);
+        // 2. Huỷ cái Refresh Token (Vé dài hạn) trong DB
+        $refreshTokenRaw = $request->cookie('mojin_refresh_token');
+        if ($refreshTokenRaw) {
+            $tokenInstance = PersonalAccessToken::findToken($refreshTokenRaw);
+            if ($tokenInstance) {
+                $tokenInstance->delete();
+            }
+        }
+
+        // 3. CHIÊU CUỐI: Ép trình duyệt xóa Cookie bằng cách đẻ ra 1 cái cookie âm thời gian!
+        $cookie = cookie(
+            'mojin_refresh_token',
+            '',   // Value rỗng
+            -1,   // 💡 Âm thời gian để chết ngay lập tức
+            '/',
+            null,
+            config('app.env') === 'production',
+            true, // HttpOnly
+            false,
+            'Lax'
+        );
+
+        return response()->json(['message' => 'Đăng xuất thành công!'], 200)->withCookie($cookie);
     }
 
     public function updateInformation(Request $request)

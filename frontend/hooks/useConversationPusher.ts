@@ -5,9 +5,11 @@ import { IConversation } from "@/types/conversation";
 import { useConversationStore } from "@/stores/useConversationStore";
 
 export const useConversationPusher = (
-  addConversation: (newConv: IConversation) => void,
 ) => {
   const user = useAuthStore((state) => state.user);
+  const addConversation = useConversationStore(
+    (state) => state.addConversationToState,
+  );
   const updateParticipantStatus = useConversationStore(
     (state) => state.updateParticipantStatus,
   );
@@ -26,18 +28,16 @@ export const useConversationPusher = (
     });
 
     // --- 💡 THÊM CÁI MỚI NÀY VÀO: LẮNG NGHE ON/OFF ---
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    globalChannel.bind("user-status-changed", (data: any) => {
-      console.log("🟢 Có người đổi trạng thái:", data);
-      // Data BE trả về có các key khớp với constructor trong Laravel Event
+    globalChannel.bind("user-status-changed", (data: { userId: number; status: "online" | "offline"; lastActiveAt?: string }) => {
       updateParticipantStatus(data.userId, data.status, data.lastActiveAt);
     });
 
     return () => {
       channel.unbind_all();
-      // channel.unsubscribe();
+      pusherClient.unsubscribe(userChannelName); // Đóng kênh cá nhân
+      
       globalChannel.unbind_all();
-      // globalChannel.unsubscribe();
+      pusherClient.unsubscribe(globalChannelName);
     };
   }, [user?.id, addConversation, updateParticipantStatus]);
 };

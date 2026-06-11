@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\MessageController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+Route::post('/logout', [AuthController::class, 'logout']);
 /*
 |--------------------------------------------------------------------------
 | Protected Routes (Bắt buộc phải có Bearer Token)
@@ -31,7 +33,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route cập nhật trạng thái On/Off
     Route::post('/user/status', [ConversationController::class, 'updateStatus']);
 
-    Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/update', [AuthController::class, 'updateInformation']);
     Route::post('/add-avatar', [AuthController::class, 'addAvatar']);
 

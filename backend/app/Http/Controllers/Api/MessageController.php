@@ -33,6 +33,7 @@ class MessageController extends Controller
             $conversation->participants()->attach([$myId, $friendId]);
         }
 
+
         return $conversation;
     }
 
@@ -263,12 +264,13 @@ class MessageController extends Controller
     }
 
     /**
-     * API: Xóa tin nhắn đơn lẻ (Thu hồi hoặc ẩn phía tôi)
+     * API: Xóa tin nhắn (Xóa sạch không dấu vết hoặc Ẩn phía tôi)
      */
     public function deleteMessage(Request $request, $conversationId, $messageId)
     {
         $myId = $request->user()->id;
 
+        // 1. Kiểm tra quyền truy cập phòng chat
         $isParticipant = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $myId)
@@ -278,33 +280,44 @@ class MessageController extends Controller
             return response()->json(['message' => 'Bạn không có quyền truy cập phòng chat này.'], 403);
         }
 
+        // 2. Tìm tin nhắn hợp lệ
         $message = Message::where('id', $messageId)
             ->where('conversation_id', $conversationId)
             ->firstOrFail();
 
-        $conversation = $message->conversation; // 💡 Lưu lại phòng chat trước khi delete
+        $conversation = $message->conversation;
 
+        // 3. XỬ LÝ LOGIC SÁT THỦ (Đúng ý bác 100%)
         if ($message->user_id === $myId) {
-            // Thu hồi vĩnh viễn tin nhắn của chính mình (Tin số 5)
+            // Trường hợp 1: Tin nhắn của CHÍNH TÔI -> Xóa sổ vật lý, bay màu khỏi Database luôn!
             $message->delete();
-            $type = 'unsend';
+            $type = 'delete_for_all';
         } else {
-            // Ẩn phía tôi bằng cách push ID vào JSON array (Tin số 3)
+            // Trường hợp 2: Tin nhắn của ĐỐI PHƯƠNG -> Chỉ ẩn khỏi máy mình
             $ids = $message->deleted_by_ids ?? [];
             if (!in_array($myId, $ids)) {
                 $ids[] = $myId;
-                $message->update(['deleted_by_ids' => array_unique($ids)]);
+                // Nhét ID của mình vào mảng json, đối phương không hề bị ảnh hưởng
+                $message->update(['deleted_by_ids' => array_values(array_unique($ids))]);
             }
             $type = 'delete_for_me';
         }
 
-        // Cập nhật lại last_message_id sau khi dòng kia biến mất
+        // 4. Cập nhật lại last_message_id cho phòng chat (Cực quan trọng để Sidebar không bị kẹt tin cũ)
         $this->updateLastMessage($conversation);
 
-        // 🚀 BẮN TIN HIỆU REAL-TIME SANG CHO ĐỐI PHƯƠNG
-        broadcast(new MessageDeleted($messageId, $conversationId, $type))->toOthers();
+        // 5. BẮN TÍN HIỆU REAL-TIME
+        // Chỉ khi nào Xóa Vĩnh Viễn (delete_for_all) thì mới bắn Pusher sang máy đối phương để máy nó gỡ tin nhắn đó ra khỏi màn hình.
+        // Còn nếu xóa phía mình (delete_for_me) thì âm thầm làm, đéo báo cho đối phương biết.
+        if ($type === 'delete_for_all') {
+            broadcast(new MessageDeleted($messageId, $conversationId, $type))->toOthers();
+        }
 
-        return response()->json(['status' => 'success', 'message' => 'Tin nhắn đã được xóa.', 'type' => $type]);
+        return response()->json([
+            'status' => 'success', 
+            'message' => 'Đã xóa tin nhắn thành công.', 
+            'type' => $type
+        ]);
     }
 
     /**

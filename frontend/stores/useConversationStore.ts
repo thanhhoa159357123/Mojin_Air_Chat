@@ -28,8 +28,9 @@ export const useConversationStore = create<IConversationState>()(
         set({ loading: true, error: null });
         try {
           const response = await getConversation();
+          const data = response.data?.data || response.data || response;
           set({
-            conversations: response.data.data || response.data,
+            conversations: Array.isArray(data) ? data : [],
             loading: false,
           });
         } catch (error: unknown) {
@@ -45,7 +46,23 @@ export const useConversationStore = create<IConversationState>()(
       createConversation: async (label: string, participantIds: number[]) => {
         try {
           const response = await createConversation(label, participantIds);
-          return response.data || response;
+          // 💡 Đón cục dữ liệu room mới từ DB Laravel dội về
+          const newConversation = response.data || response;
+
+          set((state) => {
+            // Check trùng để tránh lặp UI
+            if (state.conversations.some((c) => c.id === newConversation.id)) {
+              return { loading: false };
+            }
+            // 💡 Đập thẳng phòng mới tạo lên đầu danh sách Sidebar cho máu!
+            return {
+              conversations: [newConversation, ...state.conversations],
+              selectConversation: newConversation, // Mở luôn phòng này ra
+              loading: false,
+            };
+          });
+
+          return newConversation;
         } catch (error: unknown) {
           const message = extractErrorMessage(
             error,
@@ -59,7 +76,7 @@ export const useConversationStore = create<IConversationState>()(
       fetchParticipants: async (conversationId: number) => {
         try {
           const response = await getParticipantsApi(conversationId);
-          const participants = response.data || response;
+          const participants = response.data?.data || response.data || response;
 
           set((state) => {
             const updatedConversations = state.conversations.map((conv) =>

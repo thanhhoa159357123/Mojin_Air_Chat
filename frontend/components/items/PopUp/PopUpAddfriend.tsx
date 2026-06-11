@@ -201,16 +201,21 @@ const PopUpAddfriend = ({
                           className="flex items-center justify-between p-3 rounded-2xl hover:bg-accent transition-all border border-transparent hover:border-border group"
                         >
                           <div className="flex items-center gap-3">
-                            {user.avatar ? (
-                              <Image
-                                src={user.avatar}
-                                alt="avatar"
-                                className="rounded-full object-cover"
-                                width={44}
-                                height={44}
-                              />
+                            {user?.avatar ? (
+                              /* 💡 BẢO BỐI CHỐT HẠ: Ép cứng size-11 (44px) cả rộng lẫn cao, dùng shrink-0 để đéo ai bóp nghẹt được nó, và bắt buộc phải có aspect-square */
+                              <div className="w-11 h-11 size-11 aspect-square rounded-full overflow-hidden shadow-sm ring-2 ring-background shrink-0 relative">
+                                <Image
+                                  src={user.avatar}
+                                  alt="avatar"
+                                  width={44}
+                                  height={44}
+                                  className="w-full h-full object-cover shrink-0 block"
+                                />
+                              </div>
                             ) : (
-                              <div className="size-11 rounded-full bg-primary shadow-sm ring-2 ring-background" />
+                              <div className="w-11 h-11 size-11 aspect-square rounded-full bg-primary shadow-sm ring-2 ring-background flex items-center justify-center text-primary-foreground font-bold text-sm uppercase shrink-0">
+                                {user?.first_name?.substring(0, 2) || "U"}
+                              </div>
                             )}
 
                             <div className="flex flex-col">

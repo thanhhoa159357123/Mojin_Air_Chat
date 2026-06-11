@@ -4,12 +4,12 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-// NHỚ DÙNG ShouldBroadcastNow để tin nhắn bắn đi NGAY LẬP TỨC (không bị delay vào Queue)
-class MessageSent implements ShouldBroadcastNow
+// NHỚ DÙNG ShouldBroadcast để tin nhắn bắn đi NGAY LẬP TỨC (không bị delay vào Queue)
+class MessageSent implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

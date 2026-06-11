@@ -5,9 +5,8 @@ import FormInput from "./items/FormInput";
 import { useInputRefHook } from "./hooks/useInputRefHook";
 import { useChatPusher } from "@/hooks/useChatPusher";
 import HeaderBar from "./items/HeaderBar";
-import { useChatFormHook } from "./hooks/useChatFormHook";
 import { useChatStore } from "@/stores/useChatStore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react"; // 💡 NHẬP useRef VÀO ĐÂY
 import { useChatHook } from "@/hooks/useChatHook";
 import { useConversationStore } from "@/stores/useConversationStore";
 
@@ -36,48 +35,54 @@ const ChatForm = ({
   );
   const { isGroup, partner, displayName, displayAvatar } =
     useChatHook(selectConversation);
-  // 💡 NGUỒN CHÂN LÝ: Lấy phòng đang chat chính chủ từ Store
-  // 💡 GỌI HOOK DUY NHẤT 1 LẦN Ở ĐÂY ĐỂ TRÁNH XUNG ĐỘT STATE
+
   const inputHookData = useInputRefHook();
-
-  // 🌟 KÍCH HOẠT MẮT THẦN REAL-TIME: Nghe chuẩn đét theo ID cuộc hội thoại
   useChatPusher(selectConversation);
-
   const fetchMessages = useChatStore((state) => state.fetchMessages);
 
+  // 🚀 BẢO BỐI THẦN KHÍ CHỐNG REACT STRICT MODE & DOUBLE RENDER
+  const fetchedRoomIdRef = useRef<number | null>(null);
+
   useEffect(() => {
+    // 1. Trường hợp không có phòng: Reset sạch sẽ
+    if (!selectConversation?.id) {
+      useChatStore.setState({ messages: [], hasMore: true, page: 1, loading: false });
+      fetchedRoomIdRef.current = null;
+      return;
+    }
+
+    // 🚀 2. VÒNG KIM CÔ: Nếu phòng này vừa lấy data xong, cấm gọi API lần thứ 2!
+    if (fetchedRoomIdRef.current === selectConversation.id) return;
+    fetchedRoomIdRef.current = selectConversation.id; // Khóa chốt ID lại ngay
+
     const loadMessages = async () => {
-      if (selectConversation?.id) {
-        try {
-          await fetchMessages(
-            selectConversation.id,
-            selectConversation.type,
-            1,
-            !!selectConversation.is_virtual,
-          );
-          if (
-            selectConversation.unread_count &&
-            selectConversation.unread_count > 0
-          ) {
-            await markConversationRead(selectConversation.id);
-          }
-        } catch {
-          // Lỗi đã được xử lý trong store
+      // Xóa tàn dư phòng cũ trước khi gọi API
+      useChatStore.setState({ messages: [], hasMore: true, page: 1, loading: true });
+
+      try {
+        await fetchMessages(
+          selectConversation.id,
+          selectConversation.type,
+          1,
+          !!selectConversation.is_virtual,
+        );
+        
+        if (selectConversation.unread_count && selectConversation.unread_count > 0) {
+          // GỌI /read SAU CÙNG ĐỂ KHÔNG CHÉN CHUNG BĂNG THÔNG VỚI THẰNG MESSAGES
+          await markConversationRead(selectConversation.id).catch(() => {});
         }
-      } else {
-        // Nếu không chọn ai (vừa vào app), dọn sạch mảng tin nhắn về rỗng
-        useChatStore.setState({ messages: [] });
+      } catch {
+        // Handle error in store
       }
     };
 
     void loadMessages();
-  }, [selectConversation, fetchMessages, markConversationRead]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectConversation?.id]); // Lắng nghe chuẩn ID
 
-  const [isEdited, setIsEdited] = useState(false);
 
   return (
     <div className="flex flex-col h-full bg-background/40 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-border">
-      {/* Header Bar */}
       <HeaderBar
         isGroup={isGroup}
         partner={partner}
@@ -85,10 +90,9 @@ const ChatForm = ({
         displayAvatar={displayAvatar}
         onToggleOption={onToggleOption}
       />
-
-      {/* Messages Area */}
       <FormChatting
         selectConversation={selectConversation}
+        partner={partner}
         setReplyingTo={inputHookData.setReplyingTo}
         startEditing={inputHookData.startEditing}
         setChatDeleteMessageId={setChatDeleteMessageId}
@@ -96,8 +100,6 @@ const ChatForm = ({
           setIsVisibleNotificationDeleteMessage
         }
       />
-
-      {/* Input Form */}
       <FormInput
         inputHookData={inputHookData}
         handleSendMessage={handleSendMessage}

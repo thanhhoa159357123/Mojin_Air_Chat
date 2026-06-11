@@ -36,14 +36,14 @@ const OptionFile = ({ isOpenMedia, setIsOpenMedia }: OptionFileProps) => {
               <ImageIcon className="size-4 text-primary" />
             </div>
             <span className="text-sm text-foreground">
-              File phương tiện (12)
+              File phương tiện (0)
             </span>
           </div>
           <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item">
             <div className="p-1.5 rounded-lg bg-primary/10 group-hover/item:bg-primary/20 transition-colors">
               <FileTextIcon className="size-4 text-primary" />
             </div>
-            <span className="text-sm text-foreground">File (5)</span>
+            <span className="text-sm text-foreground">File (0)</span>
           </div>
         </div>
       </div>

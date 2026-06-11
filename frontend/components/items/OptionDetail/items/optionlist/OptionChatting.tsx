@@ -39,13 +39,23 @@ const OptionChatting = ({
         }`}
       >
         <div className="px-2 py-1 space-y-1">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item">
+          <div
+            onClick={() =>
+              alert("Tính năng Thay đổi chủ đề đang được phát triển!")
+            }
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item"
+          >
             <div className="p-1.5 rounded-lg bg-primary/10 group-hover/item:bg-primary/20 transition-colors">
               <PaletteIcon className="size-4 text-primary" />
             </div>
             <span className="text-sm text-foreground">Thay đổi chủ đề</span>
           </div>
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item">
+          <div
+            onClick={() =>
+              alert("Tính năng Thay đổi chủ đề đang được phát triển!")
+            }
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item"
+          >
             <div className="p-1.5 rounded-lg bg-primary/10 group-hover/item:bg-primary/20 transition-colors">
               <ThumbsUpIcon className="size-4 text-primary" />
             </div>
@@ -53,7 +63,12 @@ const OptionChatting = ({
               Thay đổi biểu tượng cảm xúc
             </span>
           </div>
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item">
+          <div
+            onClick={() =>
+              alert("Tính năng Thay đổi chủ đề đang được phát triển!")
+            }
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item"
+          >
             <div className="p-1.5 rounded-lg bg-primary/10 group-hover/item:bg-primary/20 transition-colors">
               <UserPenIcon className="size-4 text-primary" />
             </div>
