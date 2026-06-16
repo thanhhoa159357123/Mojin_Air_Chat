@@ -2,6 +2,7 @@
 
 import { extractErrorMessage } from "@/lib/errorHandler";
 import { useFriendStore } from "@/stores/useFriendStore";
+import { IFriend } from "@/types/friend";
 import { toast } from "sonner";
 
 export const useFriendHook = () => {
@@ -11,7 +12,7 @@ export const useFriendHook = () => {
     try {
       await store.addFriend(friendId);
       toast.success("Đã gửi lời mời kết bạn!");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error.message || "Thêm bạn thất bại. Thử lại nhé!");
       throw error;
@@ -28,10 +29,17 @@ export const useFriendHook = () => {
     const targetRequest = currentRequests.find((req) => req.id === friendId);
 
     if (targetRequest) {
-      // 3. HACK THỊ GIÁC: XÓA NÓ KHỎI LIST CHỜ VÀ BÊ SANG LIST BẠN BÈ TRÊN RAM NGAY LẬP TỨC (0ms)
+      const optimisticFriend: IFriend = {
+        ...targetRequest,
+        full_name: `${targetRequest.first_name} ${targetRequest.last_name}`,
+        friendship_status: 1, // Đã thành bạn bè
+        status: "offline", // Tạm thời để offline chờ server sync
+        last_message: null, // Vừa kết bạn làm gì đã có tin nhắn
+      };
+
       useFriendStore.setState({
         friendRequests: currentRequests.filter((req) => req.id !== friendId),
-        friends: [...currentFriends, targetRequest],
+        friends: [...currentFriends, optimisticFriend],
       });
     }
 

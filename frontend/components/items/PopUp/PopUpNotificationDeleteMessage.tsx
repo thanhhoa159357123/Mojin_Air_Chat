@@ -1,6 +1,8 @@
+import { useEffect } from "react"; // 💡 Nhớ import cái này nha đại ca
+
 interface PopUpNotificationDeleteMessageProps {
   onClose?: () => void;
-  messageId?: number | null; // Thêm prop này để nhận ID tin nhắn cần xoá
+  messageId?: number | null;
   handleDeleteMessage?: (messageId: number) => void;
 }
 
@@ -9,6 +11,38 @@ const PopUpNotificationDeleteMessage = ({
   messageId,
   handleDeleteMessage,
 }: PopUpNotificationDeleteMessageProps) => {
+
+  // 🚀 BÍ THUẬT: LẮNG NGHE PHÍM ENTER KHI POPUP ĐANG MỞ
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Bắt trúng phím Enter
+      if (e.key === "Enter") {
+        e.preventDefault(); // Chặn hành vi mặc định (tránh nhảy trang hoặc submit form rác)
+        
+        // Gọi hàm xóa y hệt như lúc bấm nút
+        if (handleDeleteMessage && messageId) {
+          handleDeleteMessage(messageId);
+          if (onClose) onClose();
+        }
+      }
+
+      // 💡 Bonus: Ấn nút ESC để đóng PopUp cho nó pro
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (onClose) onClose();
+      }
+    };
+
+    // Gắn tai nghe vào window
+    window.addEventListener("keydown", handleKeyDown);
+
+    // 🧹 QUAN TRỌNG NHẤT (CLEANUP): 
+    // Khi PopUp đóng lại, phải gỡ tai nghe ra, nếu không ra ngoài chat ấn Enter nó lại gọi nhầm hàm xóa!
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleDeleteMessage, messageId, onClose]); // Khai báo đủ dependencies
+
   return (
     <div className="bg-card rounded-2xl p-6 w-150 shadow-xl flex flex-col gap-3 border border-border">
       {/* Header */}

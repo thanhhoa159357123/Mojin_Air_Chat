@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Broadcasting\BroadcastManager;
+use Illuminate\Contracts\Broadcasting\Factory;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Laravel\Octane\Events\RequestHandled;
 use Laravel\Octane\Events\RequestReceived;
@@ -135,7 +137,8 @@ return [
     ],
 
     'flush' => [
-        //
+        BroadcastManager::class,
+        Factory::class,
     ],
 
     /*

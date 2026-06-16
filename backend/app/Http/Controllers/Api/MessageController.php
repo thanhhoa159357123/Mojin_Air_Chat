@@ -75,9 +75,9 @@ class MessageController extends Controller
                 'sender:id,first_name,last_name,avatar',
                 'parent.sender:id,first_name,last_name'
             ])
-            // 💡 SỬA Ở ĐÂY: Phải lấy DESC để ưu tiên lấy 30 tin mới nhất!
+            // 💡 SỬA Ở ĐÂY: Phải lấy DESC để ưu tiên lấy 20 tin mới nhất!
             ->orderBy('created_at', 'desc')
-            ->paginate(30);
+            ->paginate(20);
 
         // 💡 BÍ THUẬT: Vì lấy DESC nên tin nhắn đang bị ngược (tin mới nhất nằm trên cùng).
         // Phải lật ngược mảng lại để Frontend render xuôi chiều từ trên xuống dưới.

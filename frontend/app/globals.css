@@ -374,12 +374,36 @@
     @apply bg-background text-foreground;
   }
 
-  html {
-    overflow-y: scroll;
-    scrollbar-gutter: stable;
-    scroll-behavior: smooth;
+  /* 💡 ÉP SMOOTH SCROLL CHO TẤT CẢ PHÂN VÙNG CÓ CHỨA SCROLLBAR */
+  html,
+  body,
+  div[overflow-y-auto],
+  .overflow-y-auto {
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch; /* Hỗ trợ mượt mà trên Safari/Mobile */
   }
 
+  .dark,
+  .dark *,
+  :root,
+  :root * {
+    transition-property:
+      background-color, border-color, color, text-decoration-color, fill, stroke !important;
+    transition-duration: 0ms !important;
+  }
+
+  /* 🚀 TRẢ LẠI SỰ SỐNG CHO CỘT OPTION DETAIL VÀ CÁC POPUP HỆ THỐNG */
+  aside,
+  .fixed,
+  [class*="PopUp"],
+  div[class*="fixed"] {
+    /* Cho phép các phân vùng đặc biệt này được quyền transition các thuộc tính chuyển động hình học */
+    transition-property:
+      flex, min-width, width, opacity, margin, transform, scale !important;
+    transition-duration: 300ms !important; /* Hoặc 500ms tùy bác muốn */
+  }
+
+  /* Tối ưu thanh cuộn nhưng không phá vỡ cấu hình mượt */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -394,16 +418,10 @@
     background: var(--forest);
     border-radius: var(--radius);
     border: 2px solid var(--matcha-lighter);
-    transition: all 0.3s ease;
   }
 
   ::-webkit-scrollbar-thumb:hover {
     background: var(--forest-dark);
-  }
-
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--forest) var(--matcha-lighter);
   }
 }
 

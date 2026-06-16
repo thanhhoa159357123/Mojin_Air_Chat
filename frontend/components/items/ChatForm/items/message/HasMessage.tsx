@@ -1,7 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { IMessage } from "@/types/message";
-import { Edit2, Reply, Smile, Trash2, AlertCircle } from "lucide-react"; // 💡 Thêm AlertCircle
+import {
+  Edit2,
+  Reply,
+  Smile,
+  Trash2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react"; // 💡 Thêm AlertCircle
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IConversation } from "@/types/conversation";
 import Image from "next/image";
@@ -149,7 +157,9 @@ const HasMessage = ({
           }`}
         >
           {msg.type === "image" ? (
-            <div className={`relative group/image ${msg.isError ? "opacity-40 border border-destructive rounded-lg" : ""}`}>
+            <div
+              className={`relative group/image ${msg.isError ? "opacity-40 border border-destructive rounded-lg" : ""}`}
+            >
               <Image
                 src={msg.content}
                 alt="Image"
@@ -185,12 +195,6 @@ const HasMessage = ({
                 </span>
               )}
 
-              {currentContent.text && (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word px-0.5">
-                  {currentContent.text}
-                </p>
-              )}
-
               {currentContent.images && currentContent.images.length > 0 && (
                 <div
                   className={`grid gap-1 mt-0.5 rounded-lg overflow-hidden ${msg.isError ? "opacity-40" : ""} ${
@@ -201,46 +205,89 @@ const HasMessage = ({
                         : "grid-cols-3"
                   }`}
                 >
-                  {currentContent.images.map((url: string, idx: number) => (
-                    <Image
-                      key={idx}
-                      src={url}
-                      alt="Uploaded image"
-                      className={`w-full object-cover border border-border/10 cursor-pointer hover:opacity-90 transition-opacity shadow-sm bg-background/10 ${
-                        currentContent.images.length === 1
-                          ? "max-h-52 rounded-lg"
-                          : "aspect-square h-24"
-                      }`}
-                      width={100}
-                      height={100}
-                      onClick={() => !msg.isError && setPreviewImage(url)}
-                    />
-                  ))}
+                  {currentContent.images.map((url: string, idx: number) => {
+                    return (
+                      <div
+                        key={idx}
+                        className="relative overflow-hidden rounded-lg"
+                      >
+                        {/* 🚀 CHỐT HẠ: Dùng <img> thuần của HTML, vứt thằng <Image> của Next.js đi! */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt="Chat attachment"
+                          loading="lazy"
+                          className={`w-full object-cover border border-border/10 cursor-pointer transition-all shadow-sm bg-background/10 ${
+                            (msg as any).isSending
+                              ? "opacity-50 blur-[2px] grayscale-30"
+                              : "hover:opacity-90"
+                          } ${
+                            currentContent.images.length === 1
+                              ? "max-h-52"
+                              : "aspect-square h-24"
+                          }`}
+                          onClick={() =>
+                            !msg.isError &&
+                            !(msg as any).isSending &&
+                            setPreviewImage(url)
+                          }
+                        />
+
+                        {/* 🚀 VÒNG XOAY SPINNER HIỆN Ở GIỮA ẢNH ĐANG TẢI (GIỮ NGUYÊN) */}
+                        {(msg as any).isSending && (
+                          <div className="absolute inset-0 m-auto flex items-center justify-center pointer-events-none">
+                            <div className="bg-black/50 p-2 rounded-full shadow-lg backdrop-blur-sm">
+                              <Loader2 className="size-5 text-white animate-spin" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {currentContent.files && currentContent.files.length > 0 && (
                 <div className="flex flex-col gap-1 mt-0.5">
-                  {currentContent.files.map((url: string, idx: number) => (
-                    <div
-                      key={idx}
-                      className={`p-2.5 rounded-lg flex items-center gap-2 border overflow-hidden ${msg.isError ? "bg-destructive/5 border-destructive/20 text-destructive" : !isThem ? "bg-black/10 border-white/10 text-white" : "bg-background border-border text-foreground"}`}
-                    >
-                      <a
-                        href={msg.isError ? undefined : `${url}?download=`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`flex items-center gap-2 w-full truncate text-xs font-medium ${msg.isError ? "pointer-events-none" : "hover:underline"}`}
+                  {currentContent.files.map((fileObj: any, idx: number) => {
+                    const isObject =
+                      typeof fileObj === "object" && fileObj !== null;
+                    let finalUrl = isObject ? fileObj.url : fileObj;
+                    const finalName = isObject
+                      ? fileObj.name
+                      : getFileNameFromUrl(fileObj);
+
+                    // 🚀 LỚP 1: Ép Cloudinary cấu hình Header Attachment (Tải về máy, cấm mở tab mới)
+                    if (finalUrl && finalUrl.includes("res.cloudinary.com")) {
+                      finalUrl = finalUrl.replace(
+                        "/upload/",
+                        "/upload/fl_attachment/",
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-2.5 rounded-lg flex items-center gap-2 border overflow-hidden ${msg.isError ? "bg-destructive/5 border-destructive/20 text-destructive" : !isThem ? "bg-black/10 border-white/10 text-white" : "bg-background border-border text-foreground"}`}
                       >
-                        <span
-                          className="truncate shrink min-w-0"
-                          title={getFileNameFromUrl(url)}
+                        <a
+                          href={msg.isError ? undefined : finalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          // 🚀 LỚP 2: Ép trình duyệt đặt lại tên file gốc siêu sạch khi lưu xuống ổ cứng
+                          download={finalName}
+                          className={`flex items-center gap-2 w-full truncate text-xs font-medium ${msg.isError ? "pointer-events-none" : "hover:underline"}`}
                         >
-                          📄 {getFileNameFromUrl(url)}
-                        </span>
-                      </a>
-                    </div>
-                  ))}
+                          <span
+                            className="truncate shrink min-w-0"
+                            title={finalName}
+                          >
+                            📄 {finalName}
+                          </span>
+                        </a>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -300,26 +347,33 @@ const HasMessage = ({
 
       {/* 🚨 DÒNG TEXT BÁO LỖI: BIẾN THÀNH NÚT BẤM GỬI LẠI SIÊU CẤP VIP PRO */}
       {msg.isError && (
-        <button 
+        <button
           onClick={() => {
             // 1. Cho tin nhắn này quay lại trạng thái đang gửi (Hết lỗi)
             useChatStore.setState((state) => ({
-              messages: state.messages.map((m) => m.id === msg.id ? { ...m, isError: false } : m)
+              messages: state.messages.map((m) =>
+                m.id === msg.id ? { ...m, isError: false } : m,
+              ),
             }));
-            
+
             // 2. Kích hoạt hàm gửi lại chính cái nội dung này
             handleSendMessage(msg.content, msg.parent_id, msg.type);
-            
+
             // 3. Xoá mẹ cái tin nhắn lỗi cũ này đi vì hàm handleSendMessage ở trên nó sẽ tự đẻ ra 1 cái tin optimistic mới tinh tiếp theo!
             useChatStore.setState((state) => ({
-              messages: state.messages.filter((m) => m.id !== msg.id)
+              messages: state.messages.filter((m) => m.id !== msg.id),
             }));
           }}
           className="flex items-center gap-1 text-[11px] text-destructive font-medium mt-0.5 pr-1 hover:underline cursor-pointer group active:scale-95 transition-transform animate-in fade-in duration-200"
           title="Bấm để gửi lại tin nhắn"
         >
           <AlertCircle className="size-3.5 animate-pulse" />
-          <span>Gửi lỗi. <strong className="text-primary hover:text-primary/80">Thử lại?</strong></span>
+          <span>
+            Gửi lỗi.{" "}
+            <strong className="text-primary hover:text-primary/80">
+              Thử lại?
+            </strong>
+          </span>
         </button>
       )}
     </div>

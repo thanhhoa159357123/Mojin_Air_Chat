@@ -72,7 +72,7 @@ export default function Home() {
       </aside>
 
       {/* 3. Chat Form: Tỷ lệ 5.5, chiếm phần lớn không gian màn hình */}
-      <main className="flex-[5.5] min-w-112.5 bg-card rounded-xl flex flex-col border border-border shadow-md transition-all duration-300 overflow-hidden">
+      <main className="flex-[5.5] min-w-112.5 bg-card rounded-xl flex flex-col border border-border shadow-md transition-[flex,min-width] duration-300 overflow-hidden">
         {!selectConversation ? (
           <NonConversation />
         ) : (
@@ -89,7 +89,7 @@ export default function Home() {
 
       {/* 4. Option Detail: Tỷ lệ 2.5, thu phóng mượt mà bằng transition */}
       <aside
-        className={`hidden xl:flex bg-secondary rounded-xl flex-col border border-border shadow-md transition-all duration-500 ease-in-out overflow-hidden ${
+        className={`hidden xl:flex bg-secondary rounded-xl flex-col border border-border shadow-md transition-[flex,min-width,opacity,margin] duration-500 ease-in-out overflow-hidden ${
           isOptionOpen
             ? "flex-[2.5] min-w-[320px] opacity-100"
             : "flex-none w-0 min-w-0 border-none opacity-0 -ml-4"

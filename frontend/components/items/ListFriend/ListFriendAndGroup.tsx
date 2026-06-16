@@ -35,7 +35,7 @@ const ListFriendAndGroup = ({
 
   return (
     // 💡 TỐI ƯU: Đảm bảo sidebar co giãn mượt mà theo cha, bg-card sạch sẽ
-    <div className="flex flex-col h-full bg-card rounded-2xl shadow-lg border border-border overflow-hidden w-full transition-all duration-300">
+    <div className="flex flex-col h-full bg-card rounded-2xl shadow-lg border border-border overflow-hidden w-full transition-[width,flex] duration-300">
       {/* Khung tìm kiếm và Tabs bộ lọc */}
       <Header
         onToggleAddFriend={onToggleAddFriend}

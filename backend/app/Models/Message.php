@@ -29,37 +29,33 @@ class Message extends Model
      */
     public function getContentAttribute($value)
     {
-        // Nếu URL chứa cụm từ api/messages/{id} (Xem chi tiết tin nhắn trong khung chat)
-        // Hoặc kiểm tra xem controller action có phải là getMessages hay không
+        // Kiểm tra xem có phải đang gọi API lấy tin nhắn trong khung chat hay không
         $isChatScene = request()->is('api/messages*');
 
         if ($isChatScene) {
-            if ($this->type === 'mixed' || $this->type === 'image' || $this->type === 'file') {
-                return is_string($value) ? json_decode($value, true) : $value;
-            }
+            // Khung chat cần chuỗi gốc từ DB (Dù là text thường hay chuỗi JSON thô) để Frontend tự parse
             return $value;
         }
-        // 🚀 NGỮ CẢNH 2: Tự động gọt tỉa câu chữ preview cho Sidebar / Friendlist ngắn gọn
-        // Đề phòng trường hợp dữ liệu truyền vào đã là mảng (do Laravel tự cast) hoặc chuỗi JSON thô
-        $data = is_string($value) ? json_decode($value, true) : $value;
 
-        if ($this->type === 'mixed' && is_array($data)) {
-            // Nếu có chữ text đi kèm -> Ưu tiên hiện chữ làm preview
-            if (!empty($data['text'])) {
-                return $data['text'];
+        // 🚀 NGỮ CẢNH 2: Gọt chữ preview cho Sidebar / Danh sách bạn bè
+        if ($this->type === 'mixed') {
+            // Tự parse nội bộ trong hàm để kiểm tra cấu trúc
+            $data = is_string($value) ? json_decode($value, true) : $value;
+
+            if (is_array($data)) {
+                if (!empty($data['text'])) {
+                    return $data['text'];
+                }
+                if (!empty($data['images']) && count($data['images']) > 0) {
+                    return 'Đã gửi một hình ảnh mới';
+                }
+                if (!empty($data['files']) && count($data['files']) > 0) {
+                    return 'Đã gửi một tệp tin mới';
+                }
+                return '[Tin nhắn hỗn hợp]';
             }
-            // Nếu chỉ có ảnh -> Hiện thông báo đại diện sạch sẽ
-            if (!empty($data['images']) && count($data['images']) > 0) {
-                return 'Đã gửi một hình ảnh mới';
-            }
-            // Nếu chỉ có file -> Hiện thông báo đại diện sạch sẽ
-            if (!empty($data['files']) && count($data['files']) > 0) {
-                return 'Đã gửi một tệp tin mới';
-            }
-            return '[Tin nhắn hỗn hợp]';
         }
 
-        // Xử lý fallback preview cho các loại cũ của Sidebar
         if ($this->type === 'image') return 'Đã gửi một hình ảnh mới';
         if ($this->type === 'file') return 'Đã gửi một tệp tin mới';
 

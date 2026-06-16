@@ -86,6 +86,7 @@ const FormChatting = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
+        style={{ overflowAnchor: "none" }}
         className="h-full overflow-y-auto p-4 space-y-2"
       >
         {/* 🌟 SPINNER BAY LƠ LỬNG TRÊN CÙNG ĐỂ KHÔNG LÀM SAI SỐ SCROLL HEIGHT */}

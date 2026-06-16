@@ -23,7 +23,7 @@ export const useChatHook = (selectConversation: IConversation | null) => {
   const { isGroup, partner, displayName, displayAvatar } =
     getConversationDetails(liveConversation, user?.id);
 
-  // 🚀 OPTIMISTIC UI: GỬI TIN NHẮN (Gửi phát Sidebar và Khung chat lên Top luôn)
+  // 🚀 OPTIMISTIC UI: GỬI TIN NHẮN
   const handleSendMessage = async (
     content: string,
     parent_id?: number | null,
@@ -76,15 +76,15 @@ export const useChatHook = (selectConversation: IConversation | null) => {
 
       if (!responseData) return;
 
-      // 🌟 BƯỚC 5 ĐÃ FIX: TRÁNH ĐỤNG ĐỘ VỚI STORE VÀ PUSHER
+      // 🌟 BƯỚC 5: ÉP KIỂU SỐ ĐỂ CHỐNG TRÙNG LẶP DO TYPE MISMATCH
       useChatStore.setState((chatState) => {
         // 1. Gắp cái tin nhắn giả (optimistic) ném sọt rác
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const cleanMessages = chatState.messages.filter((m) => m.id !== (fakeMsgId as any));
         
-        // 2. Check xem thằng Zustand Store hoặc Pusher đã nhanh tay nhét tin thật vào mảng chưa?
-        // Đa số là nó nhét rồi, nếu chưa thì mình tự nhét chốt sổ.
-        const alreadyExists = cleanMessages.some((m) => m.id === responseData.id);
+        // 2. 💡 BẢO BỐI Ở ĐÂY: Ép cả 2 vế về Number để so sánh chuẩn tuyệt đối!
+        const incomingId = Number(responseData.id);
+        const alreadyExists = cleanMessages.some((m) => Number(m.id) === incomingId);
         
         return {
           messages: alreadyExists ? cleanMessages : [...cleanMessages, responseData],
@@ -98,12 +98,12 @@ export const useChatHook = (selectConversation: IConversation | null) => {
       }));
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      // 🌟 BƯỚC 6 ĐÃ NÂNG CẤP: KHÔNG XOÁ TIN NỮA, GIỮ LẠI VÀ ĐÁNH DẤU BỊ LỖI
+      // 🌟 BƯỚC 6: BÁO LỖI
       useChatStore.setState((chatState) => ({
         messages: chatState.messages.map((m) =>
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           m.id === (fakeMsgId as any) 
-            ? { ...m, isError: true } // 🚀 Bơm cờ báo lỗi vào đây!
+            ? { ...m, isError: true } 
             : m
         ),
       }));
@@ -111,15 +111,15 @@ export const useChatHook = (selectConversation: IConversation | null) => {
     }
   };
 
-  // 🚀 OPTIMISTIC UI: XÓA TIN NHẮN (Biến mất ngay lập tức)
+  // 🚀 OPTIMISTIC UI: XÓA TIN NHẮN
   const handleDeleteMessage = async (messageId: number) => {
     if (!selectConversation) return;
 
     const previousMessages = store.messages;
 
-    // Cho bốc hơi khỏi màn hình trong 0ms
+    // Cho bốc hơi khỏi màn hình trong 0ms (💡 Nhớ ép kiểu)
     useChatStore.setState({
-      messages: previousMessages.filter((m) => m.id !== messageId),
+      messages: previousMessages.filter((m) => Number(m.id) !== Number(messageId)),
     });
 
     try {
@@ -127,7 +127,6 @@ export const useChatHook = (selectConversation: IConversation | null) => {
       toast.success("Đã xóa tin nhắn.");
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      // Lỗi mạng thì ói tin nhắn đó ra lại
       useChatStore.setState({ messages: previousMessages });
       toast.error("Xóa tin nhắn thất bại.");
     }
@@ -147,16 +146,16 @@ export const useChatHook = (selectConversation: IConversation | null) => {
     }
   };
 
-  // 🚀 OPTIMISTIC UI: SỬA TIN NHẮN (Đổi chữ ngay lập tức)
+  // 🚀 OPTIMISTIC UI: SỬA TIN NHẮN
   const handleEditMessage = async (messageId: number, content: string) => {
     if (!selectConversation) return;
 
     const previousMessages = store.messages;
 
-    // Đổi chữ ngay trên RAM
+    // Đổi chữ ngay trên RAM (💡 Nhớ ép kiểu)
     useChatStore.setState({
       messages: previousMessages.map((m) =>
-        m.id === messageId ? { ...m, content: content, edit_count: (m.edit_count || 0) + 1 } : m
+        Number(m.id) === Number(messageId) ? { ...m, content: content, edit_count: (m.edit_count || 0) + 1 } : m
       ),
     });
 
@@ -164,7 +163,6 @@ export const useChatHook = (selectConversation: IConversation | null) => {
       await store.editMessage(selectConversation.id, messageId, content);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: unknown) {
-      // Lỗi thì nhả lại dòng text cũ
       useChatStore.setState({ messages: previousMessages });
       toast.error("Chỉnh sửa tin nhắn thất bại.");
     }

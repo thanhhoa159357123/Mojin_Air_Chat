@@ -22,26 +22,40 @@ export const useChatStore = create<IChatState>((set) => ({
   typingUser: null,
 
   // 1. Lấy tin nhắn (Cho Khung chat chính)
+  // 1. Lấy tin nhắn (Cho Khung chat chính)
   fetchMessages: async (
     friendId: number,
     type: "private" | "group",
     page: number = 1,
     byFriend: boolean = false,
   ) => {
-    // Nếu là trang 1 thì xoay loading to, nếu > 1 thì xoay loading nhỏ ở top
     set({ [page === 1 ? "loading" : "loadingMore"]: true, error: null });
     try {
-      // 💡 Bác nhớ update file messageService.ts thêm tham số page vào axios nhé:
-      // axiosClient.get(`/messages/${id}?type=${type}&page=${page}`)
       const response = await getMessage(friendId, type, page, byFriend);
 
       const newMessages = response.data || response;
       const hasMore = response.hasMore || false;
 
       set((state) => {
-        // 💡 TRỌNG TÂM: Nếu là load thêm (page > 1), nhét tin nhắn cũ LÊN ĐẦU mảng
+        // 💡 BẢO BỐI: Lọc sạch những tin nhắn bị lặp lại do lệch trang (Pagination Shift)
+        const uniqueNewMessages =
+          page === 1
+            ? newMessages
+            : newMessages.filter(
+                // Chỉ lấy những tin nhắn TỪ API mà CHƯA CÓ TRONG state.messages hiện tại
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (newMsg: any) =>
+                  !state.messages.some(
+                    (existingMsg) =>
+                      Number(existingMsg.id) === Number(newMsg.id),
+                  ),
+              );
+
+        // Nối mảng an toàn tuyệt đối
         const updatedMessages =
-          page === 1 ? newMessages : [...newMessages, ...state.messages];
+          page === 1
+            ? uniqueNewMessages
+            : [...uniqueNewMessages, ...state.messages];
 
         return {
           messages: updatedMessages,
@@ -110,23 +124,23 @@ export const useChatStore = create<IChatState>((set) => ({
         ); // 💡 Ép kiểu cho chắc
 
         useConversationStore.setState((convState) => {
-           // Lấy tin nhắn cuối cùng mới nhất sau khi đã xóa tin kia đi
-           const newLastMessage = updatedMessages.length > 0 
-                ? updatedMessages[updatedMessages.length - 1] 
-                : null;
+          // Lấy tin nhắn cuối cùng mới nhất sau khi đã xóa tin kia đi
+          const newLastMessage =
+            updatedMessages.length > 0
+              ? updatedMessages[updatedMessages.length - 1]
+              : null;
 
-           return {
-             conversations: convState.conversations.map((conv) => 
-               conv.id === conversationId 
-                 ? { ...conv, last_message: newLastMessage }
-                 : conv
-             )
-           };
+          return {
+            conversations: convState.conversations.map((conv) =>
+              conv.id === conversationId
+                ? { ...conv, last_message: newLastMessage }
+                : conv,
+            ),
+          };
         });
 
         return { messages: updatedMessages };
       });
-
     } catch (error: unknown) {
       // --- SỬA Ở ĐÂY ---
       const message = extractErrorMessage(error, "Xóa tin nhắn thất bại rồi!");
