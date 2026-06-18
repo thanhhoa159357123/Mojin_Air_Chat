@@ -13,7 +13,6 @@ use App\Models\Message;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class ConversationController extends Controller
 {
@@ -105,40 +104,48 @@ class ConversationController extends Controller
     }
 
     /**
-     * Tạo cuộc trò chuyện mới của nhóm
+     * KỊCH BẢN: TẠO NHÓM CHAT MỚI (GROUP)
+     * 1. Validate đảm bảo có ít nhất 2 thành viên được mời (không tính người tạo).
+     * 2. Chạy DB Transaction: Tạo vỏ nhóm -> Gom ID độc nhất -> Sync bảng trung gian kèm Role.
+     * 3. Bắn tin nhắn hệ thống thông báo tạo nhóm & Broadcast real-time cập nhật UI cho mọi người.
+     * TODO: Viết function xóa bạn và block bạn
      */
     public function createConversations(Request $request)
     {
+        // * Kiểm tra dữ liệu đầu vào, đảm bảo có ít nhất 2 người tham gia (không bao gồm cả người tạo)
         $validated = $request->validate([
             'label' => 'nullable|string|max:255',
             'participant_ids' => 'required|array|min:2',
             'participant_ids.*' => 'exists:users,id'
         ]);
-        Log::info("Dữ liệu", $validated);
+
         $type = 'group';
         try {
+            // * Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu, tránh trường hợp tạo conversation thành công nhưng lỗi khi sync participants
             return DB::transaction(function () use ($type, $validated, $request) {
-                // 1. Tạo Conversation
+                // * 1: Khởi tạo vỏ cuộc hội thoại nhóm
                 $conversation = Conversation::create([
                     'type' => $type,
                     'label' => $validated['label'] ?? 'Những kẻ mộng mơ', // Default như bác muốn
                     'avatar' => null,
                 ]);
 
-                Log::info("Đã tạo cuộc trò chuyện mới với ID: {$conversation->id}");
-
-                // 2. Gom ID (Unique để tránh trường hợp user mời chính mình vào mảng)
+                // * 2: Gom ID người mời và ép thêm ID người tạo vào mảng độc nhất
                 $allParticipantIds = collect($validated['participant_ids'])
                     ->push($request->user()->id)
                     ->unique();
 
-                // 3. Sync vào bảng trung gian
+                /**
+                 * * Tạo mảng sync
+                 * * Duyệt qua tất cả ID để gán role, nếu ID nào trùng với user hiện tại (là người tạo group ) thì gán 'creator', còn lại là 'member'
+                 */
                 $syncData = [];
                 foreach ($allParticipantIds as $id) {
                     $syncData[$id] = ['role' => ($id === $request->user()->id) ? 'creator' : 'member'];
                 }
                 $conversation->participants()->sync($syncData);
 
+                // * 3. Tạo tin nhắn hệ thống thông báo nhóm mới được tạo
                 Message::create([
                     'conversation_id' => $conversation->id,
                     'user_id' => $request->user()->id,
@@ -151,8 +158,7 @@ class ConversationController extends Controller
                 return $conversation->load('participants');
             });
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
-            Log::error("File: " . $e->getFile() . " Line: " . $e->getLine());
+            // ! CẢNH BÁO: Log lỗi hệ thống hoặc ẩn đi khi đem lên Production
             return response()->json([
                 'message' => 'Lỗi tạo nhóm chat, vui lòng thử lại!', // Nên trả về lỗi chung cho user, giấu lỗi thật đi
                 'error' => $e->getMessage() // Chỉ hiện lúc đang dev
@@ -161,36 +167,47 @@ class ConversationController extends Controller
     }
 
     /**
-     * Thêm thành viên vào nhóm
+     * 💡 KỊCH BẢN: THÊM THÀNH VIÊN VÀO NHÓM CHAT (GROUP)
+     * 1. Validate linh hoạt: Chấp nhận cả 1 ID lẻ hoặc 1 mảng ID thành viên mới.
+     * 2. Gạn lọc dữ liệu: Loại bỏ những ID đã có mặt sẵn trong nhóm chat.
+     * 3. Sync không xóa cũ (syncWithoutDetaching) để thêm người mới vào nhóm.
+     * 4. Tạo tin nhắn hệ thống thông báo danh sách tên người được thêm & Broadcast real-time.
      */
-    public function addParticipant(Request $request, $conversationId)
+    private function addParticipant(Request $request, $conversationId)
     {
+        // * Validate đầu vào: Hỗ trợ linh hoạt cả user_id (số ít) lẫn user_ids (số nhiều/mảng)
         $request->validate([
             'user_id' => 'required_without:user_ids|exists:users,id',
             'user_ids' => 'required_without:user_id|array|min:1',
             'user_ids.*' => 'exists:users,id'
         ]);
 
+        // * Mò tìm cuộc trò chuyện nhóm, đéo thấy thì quăng lỗi 404
         $conversation = Conversation::where('id', $conversationId)
             ->where('type', 'group')
             ->firstOrFail();
 
+        // * Ép toàn bộ dữ liệu ID đầu vào về một dạng Mảng (Array) để dễ xử lý chung ở dưới
         $memberIdsInput = $request->input('user_ids');
         if (!$memberIdsInput && $request->filled('user_id')) {
             $memberIdsInput = [$request->input('user_id')];
         }
 
+        // * Gạn lọc dữ liệu đầu vào: Ép kiểu số nguyên, xóa ID trùng lặp, lôi ID hiện tại trong DB lên RAM
         $memberIdsInput = array_values(array_unique(array_map('intval', $memberIdsInput ?? [])));
         $memberIds = $conversation->participants()->pluck('users.id')->toArray();
 
+        // * So găng 2 mảng: Tìm ra ID mới tinh. Nếu không có ai mới thì chặn đứng trả lỗi 400
         $newMemberIds = array_values(array_diff($memberIdsInput, $memberIds));
-
         if (count($newMemberIds) === 0) {
             return response()->json(['message' => 'Người dùng đã là thành viên của nhóm'], 400);
         }
 
+        // * Đồng bộ nạp thành viên mới vào bảng trung gian mà đéo làm ảnh hưởng đến người cũ
         $conversation->participants()->syncWithoutDetaching($newMemberIds);
 
+        // * BƯỚC 4: Tạo tin nhắn hệ thống (System Message) và kích nổ Broadcast Real-time
+        // 4.1 Cào Họ Tên sạch sẽ của mớ User mới lên RAM để chuẩn bị nối chuỗi
         $newMembers = User::whereIn('id', $newMemberIds)
             ->get(['id', 'first_name', 'last_name']);
 
@@ -205,12 +222,14 @@ class ConversationController extends Controller
             $newMembersString = implode(', ', $newMemberNames);
         }
 
+        // 4.2 Bẫy logic: Tự động render nội dung thông báo theo Tên cụ thể hoặc theo Số lượng
         $actorName = $request->user()->full_name;
         $memberCount = count($newMemberIds);
         $systemContent = $newMembersString !== ''
             ? "{$actorName} đã thêm {$newMembersString} vào nhóm"
             : "{$actorName} đã thêm {$memberCount} thành viên vào nhóm";
 
+        // 4.3 Khởi tạo bản ghi tin nhắn hệ thống vào DB
         Message::create([
             'conversation_id' => $conversation->id,
             'user_id' => $request->user()->id,
@@ -218,6 +237,7 @@ class ConversationController extends Controller
             'type' => 'system'
         ]);
 
+        // 4.4 Phát tín hiệu real-time qua Pusher để Front-End NextJS tự động húp dữ liệu cập nhật Sidebar
         $participantIds = $conversation->participants()->pluck('users.id')->toArray();
         broadcast(new GroupCreated($conversation, $participantIds));
 
@@ -229,31 +249,39 @@ class ConversationController extends Controller
 
     public function addParticipants(Request $request, $conversationId)
     {
+        // * Hàm này chỉ là wrapper để gọi hàm addParticipant chính, tách riêng ra để dễ bảo trì và có thể thêm logic kiểm tra quyền hạn sau này
         return $this->addParticipant($request, $conversationId);
     }
 
     /**
-     * Lấy danh sách thành viên trong nhóm
+     * 💡 KỊCH BẢN: LẤY DANH SÁCH THÀNH VIÊN TRONG NHÓM CHAT
+     * 1. Tìm kiếm phòng chat nhóm, nếu đéo tồn tại thì quăng lỗi 404.
+     * 2. Check Security: Kiểm tra user hiện tại có nằm trong phòng không, né trường hợp hack API.
+     * 3. Trả về list thành viên kèm các trường dữ liệu tối giản (tránh lộ password, email...).
      */
     public function getParticipants(Request $request, $conversationId)
     {
         $userId = $request->user()->id;
 
+        // * Bước 1: Mò tìm cuộc trò chuyện, ép đúng loại là 'group' mới chịu
         $conversation = Conversation::where('id', $conversationId)
             ->where('type', 'group')
             ->firstOrFail();
 
+        // * Bước 2: Check xem user đang gọi API có thực sự nằm trong phòng này không (Chống xem trộm)
         $isParticipant = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $userId)
             ->exists();
 
+        // * Bẫy bảo mật: Đéo có tên trong phòng thì tiễn khách bằng lỗi 403 
         if (!$isParticipant) {
             return response()->json([
                 'message' => 'Bạn không có quyền truy cập phòng chat này.'
             ], 403);
         }
 
+        // * Bước 3: Hốt danh sách thành viên ra, chỉ select các trường an toàn phục vụ render UI
         $participants = $conversation->participants()
             ->select(['users.id', 'first_name', 'last_name', 'username', 'avatar', 'users.status'])
             ->get();
@@ -265,45 +293,56 @@ class ConversationController extends Controller
     }
 
     /**
-     * Kick thành viên khỏi nhóm
+     * KỊCH BẢN: XÓA THÀNH VIÊN KHỎI NHÓM CHAT (Kick Member)
+     * 1. Validate linh hoạt: Chấp nhận cả 1 ID lẻ hoặc 1 mảng ID thành viên cần xóa.
+     * 2. Kiểm tra quyền hạn: Chỉ trưởng nhóm (creator) mới có quyền kick người khác, nhưng ai cũng có quyền tự rời nhóm.
+     * 3. Sync bảng trung gian để xóa thành viên khỏi nhóm, đồng thời tạo tin nhắn hệ thống thông báo ai đã bị kick hoặc ai đã tự rời nhóm.
+     * 4. Broadcast real-time cập nhật UI cho những người còn lại trong nhóm.   
      */
     public function removeParticipants(Request $request, $conversationId)
     {
+        /** Validate đầu vào: Hỗ trợ linh hoạt cả user_id (số ít) lẫn user_ids (số nhiều/mảng)
+         *  Lưu ý: Nếu chỉ có 1 ID và ID đó trùng với người gọi API thì xem như là hành động tự rời nhóm, không cần phải có quyền creator
+         */
         $request->validate([
             'user_id' => 'required_without:user_ids|exists:users,id',
             'user_ids' => 'required_without:user_id|array|min:1',
             'user_ids.*' => 'exists:users,id'
         ]);
 
+        // * Lấy thông tin cuộc trò chuyện, đảm bảo là loại 'group' và tồn tại, nếu không sẽ trả về lỗi 404
         $conversation = Conversation::where('id', $conversationId)
             ->where('type', 'group')
             ->firstOrFail();
 
         $actorId = $request->user()->id;
 
+        // * Lấy danh sách thành viên hiện tại của nhóm từ DB để kiểm tra quyền hạn
         $actorRecord = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $actorId)
             ->first();
-
         if (!$actorRecord) {
             return response()->json([
                 'message' => 'Bạn không có quyền truy cập phòng chat này.'
             ], 403);
         }
-
+        
+        // TODO: Cần kiểm tra kĩ lại luồng logic 
+        /**
+         * * Ép toàn bộ dữ liệu ID đầu vào về một dạng Mảng (Array) để dễ xử lý chung ở dưới
+         * * Loại bỏ những ID trùng lặp, ép kiểu số nguyên và gom lại thành mảng duy nhất
+         */
         $targetIdsInput = $request->input('user_ids');
         if (!$targetIdsInput && $request->filled('user_id')) {
             $targetIdsInput = [$request->input('user_id')];
         }
-
         $targetIdsInput = array_values(array_unique(array_map('intval', $targetIdsInput ?? [])));
-        
-        // 💡 FIX LỖI SỐ 3: Tách biệt logic Tự rời nhóm và Kick người khác
+
         $isSelfLeaving = count($targetIdsInput) === 1 && $targetIdsInput[0] === $actorId;
 
         if (!$isSelfLeaving) {
-            if ($actorRecord->role !== 'creator' && $actorRecord->role !== 'admin') {
+            if ($actorRecord->role !== 'creator') {
                 return response()->json(['message' => 'Chỉ trưởng nhóm mới có quyền xóa thành viên!'], 403);
             }
             // Không được tự kick chính mình trong lệnh kick số đông
@@ -333,10 +372,10 @@ class ConversationController extends Controller
         } else {
             $removedUsers = User::whereIn('id', $removeIds)->get(['id', 'first_name', 'last_name']);
             $removedNames = $removedUsers->map(fn($u) => trim($u->full_name))->filter()->values()->all();
-            
+
             $removedString = count($removedNames) > 0 ? implode(', ', $removedNames) : '';
             $removedCount = count($removeIds);
-            
+
             $systemContent = $removedString !== ''
                 ? "{$actorName} đã mời {$removedString} rời nhóm"
                 : "{$actorName} đã mời {$removedCount} thành viên rời nhóm";

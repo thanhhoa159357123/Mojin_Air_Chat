@@ -22,7 +22,6 @@ export const useChatStore = create<IChatState>((set) => ({
   typingUser: null,
 
   // 1. Lấy tin nhắn (Cho Khung chat chính)
-  // 1. Lấy tin nhắn (Cho Khung chat chính)
   fetchMessages: async (
     friendId: number,
     type: "private" | "group",

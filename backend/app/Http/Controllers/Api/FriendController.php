@@ -243,5 +243,6 @@ class FriendController extends Controller
         ]);
     }
 
-    // 
+    // TODO: Thêm tính năng xóa bạn bè
+    // TODO: Thêm tính năng block người dùng
 }
