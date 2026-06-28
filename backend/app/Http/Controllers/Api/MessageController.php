@@ -314,8 +314,8 @@ class MessageController extends Controller
         }
 
         return response()->json([
-            'status' => 'success', 
-            'message' => 'Đã xóa tin nhắn thành công.', 
+            'status' => 'success',
+            'message' => 'Đã xóa tin nhắn thành công.',
             'type' => $type
         ]);
     }

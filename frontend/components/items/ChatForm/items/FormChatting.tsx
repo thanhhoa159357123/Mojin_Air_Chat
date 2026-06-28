@@ -11,17 +11,17 @@ import HasMessage from "./message/HasMessage";
 import { useChatRefHook } from "../hooks/useChatRefHook";
 import { getFileNameFromUrl } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useChatStore } from "@/stores/useChatStore";
 import { useChatFormHook } from "../hooks/useChatFormHook";
 import { IConversation, IPartner } from "@/types/conversation";
+import { useChats } from "@/hooks/useChats";
 
 interface FormChattingProps {
-  selectConversation: IConversation | null; // 💡 NHẬN SELECT CONVERSATION TỪ CHA
-  partner: IPartner | null; // 💡 NHẬN PARTNER TỪ CHA
+  selectConversation: IConversation | null;
+  partner: IPartner | null;
   setReplyingTo: (msg: IMessage | null) => void;
   setChatDeleteMessageId: (id: number | null) => void;
   setIsVisibleNotificationDeleteMessage: (visible: boolean) => void;
-  startEditing: (msg: IMessage) => void; // 💡 NHẬN HÀM START EDITING TỪ CHA
+  startEditing: (msg: IMessage) => void;
 }
 
 const FormChatting = ({
@@ -33,43 +33,55 @@ const FormChatting = ({
   startEditing,
 }: FormChattingProps) => {
   const { typingUser } = useChatFormHook();
-  const user = useAuthStore((state) => state.user); // 💡 LẤY THÊM STATE TỪ STORE
-  const { messages, hasMore, loading, loadingMore, page, fetchMessages } =
-    useChatStore();
+  const user = useAuthStore((state) => state.user);
+
+  const {
+    messages,
+    isLoading: loading,
+    isFetchingNextPage: loadingMore,
+    hasNextPage: hasMore,
+    fetchNextPage,
+  } = useChats(selectConversation);
 
   const handleLoadMore = () => {
-    if (selectConversation && hasMore && !loadingMore) {
-      fetchMessages(
-        selectConversation.id,
-        selectConversation.type,
-        page + 1,
-        !!selectConversation.is_virtual,
-      );
+    if (hasMore && !loadingMore) {
+      fetchNextPage();
     }
   };
 
-  const { containerRef, showScrollDown, handleScroll, scrollToBottom } =
-    useChatRefHook(
-      messages,
-      selectConversation?.id,
-      handleLoadMore,
-      hasMore,
-      loadingMore,
-    );
+  const {
+    containerRef,
+    showScrollDown,
+    handleScroll,
+    scrollToBottom,
+    unreadCount,
+  } = useChatRefHook(
+    messages,
+    selectConversation?.id,
+    handleLoadMore,
+    hasMore,
+    loadingMore,
+  );
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  // 💡 VÌ MẢNG ĐÃ XUÔI: Tin nhắn mới nhất nằm ở CUỐI mảng!
   const lastMessage =
     messages.length > 0 ? messages[messages.length - 1] : null;
+
   const isLastMine =
     !!lastMessage &&
-    lastMessage.user_id === user?.id &&
+    Number(lastMessage.user_id) === Number(user?.id) &&
     lastMessage.type !== "system";
+
   const isPrivateChat = selectConversation?.type === "private";
+
   const partnerLastReadAt =
-    selectConversation?.participants?.find((p) => p.id !== user?.id)?.pivot
-      ?.last_read_at || null;
+    selectConversation?.participants?.find(
+      (p) => Number(p.id) !== Number(user?.id),
+    )?.pivot?.last_read_at || null;
+
   const isSeen =
     !!lastMessage &&
     !!partnerLastReadAt &&
@@ -86,10 +98,10 @@ const FormChatting = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        style={{ overflowAnchor: "none" }}
+        style={{ overflowAnchor: "auto" }}
         className="h-full overflow-y-auto p-4 space-y-2"
       >
-        {/* 🌟 SPINNER BAY LƠ LỬNG TRÊN CÙNG ĐỂ KHÔNG LÀM SAI SỐ SCROLL HEIGHT */}
+        {/* SPINNER LƠ LỬNG */}
         {loadingMore && (
           <div className="absolute top-2 left-0 w-full flex justify-center z-10 pointer-events-none">
             <div className="bg-background/80 p-1.5 rounded-full shadow-sm border border-border">
@@ -97,6 +109,7 @@ const FormChatting = ({
             </div>
           </div>
         )}
+
         {loading && messages.length === 0 ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3 opacity-60">
             <Loader2 className="size-8 animate-spin text-primary" />
@@ -105,12 +118,11 @@ const FormChatting = ({
             </p>
           </div>
         ) : messages.length > 0 ? (
-          /* 1. TRƯỜNG HỢP CÓ TIN NHẮN: MAP RA UI */
           messages.map((msg, index) => {
             if (msg.type === "system") {
               return (
                 <div
-                  key={msg.id}
+                  key={`system-${msg.id}-${index}`}
                   className="w-full flex justify-center my-4 animate-in fade-in zoom-in-95 duration-300"
                 >
                   <div className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10 text-[11px] font-medium text-primary tracking-wide shadow-sm max-w-[80%] text-center">
@@ -121,16 +133,32 @@ const FormChatting = ({
               );
             }
 
-            const isThem = msg.user_id !== user?.id;
+            const isThem = Number(msg.user_id) !== Number(user?.id);
 
+            // 💡 LOGIC XUÔI CHIỀU THỜI GIAN:
+            const prevMsg = index > 0 ? messages[index - 1] : null;
+            const nextMsg =
+              index < messages.length - 1 ? messages[index + 1] : null;
+
+            // Hiện tên người gửi nếu là tin nhắn đầu tiên của cụm (Tin trước đó khác người gửi)
+            const showSenderName =
+              isThem &&
+              (index === 0 ||
+                prevMsg?.type === "system" ||
+                Number(prevMsg?.user_id) !== Number(msg.user_id));
+
+            // Hiện avatar nếu là tin nhắn cuối cùng của cụm (Tin tiếp theo đổi người gửi)
             const showAvatar =
               isThem &&
               (index === messages.length - 1 ||
-                messages[index + 1].user_id !== msg.user_id);
+                nextMsg?.type === "system" ||
+                Number(nextMsg?.user_id) !== Number(msg.user_id));
 
+            // Cách cụm tin nhắn ra một khoảng (Margin bottom) nếu sắp đổi người
             const isNewCluster =
               index < messages.length - 1 &&
-              messages[index + 1].user_id !== msg.user_id;
+              (nextMsg?.type === "system" ||
+                Number(nextMsg?.user_id) !== Number(msg.user_id));
 
             const liveAvatarUrl =
               selectConversation?.type !== "group" && partner && partner.avatar
@@ -139,21 +167,16 @@ const FormChatting = ({
                   ? msg.sender.avatar
                   : null;
 
-            const showSenderName =
-              isThem &&
-              (index === 0 || messages[index - 1].user_id !== msg.user_id);
-
-            // 💡 HÀM LẤY CHỮ CÁI ĐẠI DIỆN FIX CHUẨN THEO CONVERSATION
             const getFallbackLetter = () => {
               if (msg.sender?.first_name) return msg.sender.first_name[0];
               if (selectConversation) {
                 if (selectConversation.type === "group") {
                   return selectConversation.label?.[0] || "G";
                 } else {
-                  const partner = selectConversation.participants?.find(
-                    (p) => p.id !== user?.id,
+                  const p = selectConversation.participants?.find(
+                    (p) => Number(p.id) !== Number(user?.id),
                   );
-                  return partner?.first_name?.[0] || "U";
+                  return p?.first_name?.[0] || "U";
                 }
               }
               return "U";
@@ -161,15 +184,14 @@ const FormChatting = ({
 
             return (
               <div
-                key={msg.id}
+                key={`msg-${msg.id}-${index}`}
                 className={`flex items-end gap-2 group ${!isThem ? "flex-row-reverse" : "flex-row"} ${isNewCluster ? "mb-4" : "mb-0.5"}`}
               >
-                {/* AVATAR BÊN CẠNH TIN NHẮN */}
+                {/* AVATAR */}
                 {isThem && (
                   <div className="size-8 flex-none mb-1">
                     {showAvatar ? (
                       <div className="size-8 rounded-full bg-primary/10 border border-primary/20 shadow-md flex items-center justify-center text-[10px] text-primary font-bold uppercase overflow-hidden">
-                        {/* 💡 BẢO BỐI 2: Nếu có liveAvatarUrl xịn thì táng Next Image bọc relative, không thì hiện chữ viết tắt */}
                         {liveAvatarUrl ? (
                           <div className="relative w-full h-full">
                             <Image
@@ -195,7 +217,7 @@ const FormChatting = ({
                   isThem={isThem}
                   msg={msg}
                   messages={messages}
-                  selectConversation={selectConversation} // 💡 UPDATE ĐỔI SANG TRUYỀN SELECT CONVERSATION XỊN
+                  selectConversation={selectConversation}
                   showSenderName={showSenderName}
                   setPreviewImage={setPreviewImage}
                   setReplyingTo={setReplyingTo}
@@ -210,19 +232,19 @@ const FormChatting = ({
             );
           })
         ) : (
-          /* 2. TRƯỜNG HỢP TRỐNG: HIỆN LỜI CHÀO */
           <NonMessage />
         )}
 
+        {/* TRẠNG THÁI ĐÃ XEM / ĐÃ GỬI (Nằm ngay dưới tin nhắn cuối cùng) */}
         {isPrivateChat && isLastMine && (
           <div className="flex justify-end mt-1">
-            <span className="text-[10px] text-muted-foreground/80 pr-1">
+            <span className="text-[10px] text-muted-foreground/80 pr-1 animate-in fade-in duration-200">
               {isSeen ? "Đã xem" : "Đã gửi"}
             </span>
           </div>
         )}
 
-        {/* 💡 HIỆU ỨNG TYPING NẰM ĐÂY */}
+        {/* HIỆU ỨNG TYPING */}
         <AnimatePresence>
           {typingUser && (
             <motion.div
@@ -246,13 +268,16 @@ const FormChatting = ({
       <AnimatePresence>
         {showScrollDown && (
           <motion.button
-            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.8 }}
             onClick={scrollToBottom}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl hover:bg-primary/90 transition-all z-10 flex items-center justify-center cursor-pointer"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all z-10 flex items-center justify-center cursor-pointer"
           >
             <ArrowDown className="size-5" />
+            {/* 💡 UI SỐ ĐẾM TIN MỚI */}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] size-5 flex items-center justify-center rounded-full font-bold border-2 border-background">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </motion.button>
         )}
       </AnimatePresence>

@@ -1,38 +1,48 @@
-import { useFriendStore } from "@/stores/useFriendStore";
+import { useFriends } from "@/hooks/useFriends";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 
 interface IPopUpNotification {
   onCloseNotification: () => void;
-  acceptFriendRequest: (friendId: number) => Promise<void>;
-  rejectFriendRequest: (friendId: number) => Promise<void>;
 }
 
-const PopUpNotification = ({
-  onCloseNotification,
-  acceptFriendRequest,
-  rejectFriendRequest,
-}: IPopUpNotification) => {
-  const friendRequests = useFriendStore((state) => state.friendRequests);
-  const loadingRequests = useFriendStore((state) => state.loadingRequests);
+const PopUpNotification = ({ onCloseNotification }: IPopUpNotification) => {
+
+  const { 
+    friendRequests, 
+    isFriendRequestsLoading, 
+    acceptFriend, 
+    rejectFriend 
+  } = useFriends();
+
   return (
     <>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.1 }}
         onClick={onCloseNotification}
         className="fixed inset-0 z-40 bg-black/20"
       />
+
+      {/* 2. Khung Content Popup: Bỏ x, y rườm rà, dùng spring siêu tốc */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.8, x: -20, y: -20 }}
-        animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-        exit={{ opacity: 0, scale: 0.8, x: -20, y: -20 }}
-        className="fixed top-20 left-24 z-50"
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.85 }}
+        transition={{
+          type: "spring",
+          stiffness: 400, // Lực lò xo mạnh giúp bung ra ngay lập tức
+          damping: 28, // Khống chế độ rung nhòe, giúp dừng lại mượt mà
+          duration: 0.15, // Khóa chết thời gian chạy trong 150ms
+        }}
+        className="fixed top-20 left-24 z-50 origin-top-left" // 💡 Phím thêm: Khóa tâm biến hình ở góc trên bên trái cho khớp vị trí
       >
-        <div className="w-80 bg-background/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-border overflow-hidden animate-scale-in max-h-100 overflow-y-auto custom-scrollbar">
-          {loadingRequests ? (
+        {/* 💡 ĐÃ XÓA class animate-scale-in ở đây để tránh đấm nhau với motion.div */}
+        <div className="w-80 bg-background/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-border max-h-100 overflow-y-auto custom-scrollbar">
+          {isFriendRequestsLoading ? (
             // Đang call API thì cho nó xoay xoay cho user đỡ sốt ruột
             <div className="p-6 flex justify-center items-center">
               <Loader2 className="size-6 text-primary animate-spin" />
@@ -74,13 +84,13 @@ const PopUpNotification = ({
 
                 <div className="flex items-center gap-2 mt-4 pt-2">
                   <button
-                    onClick={() => rejectFriendRequest(user.id)}
+                    onClick={() => rejectFriend(user.id)}
                     className="flex-1 px-3 py-1.5 text-sm font-medium text-muted-foreground bg-secondary rounded-lg hover:bg-accent transition-all duration-200 cursor-pointer"
                   >
                     Từ chối
                   </button>
                   <button
-                    onClick={() => acceptFriendRequest(user.id)}
+                    onClick={() => acceptFriend(user.id)}
                     className="flex-1 px-3 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary-light shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer"
                   >
                     Đồng ý

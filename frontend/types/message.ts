@@ -19,33 +19,6 @@ export interface IMessage {
 }
 
 export interface IChatState {
-  messages: IMessage[]; // Chỉ cần quản lý mảng tin nhắn
-  loading: boolean;
-  loadingMore: boolean;
-  page: number;
-  error: string | null;
-  hasMore: boolean;
-
   typingUser: string | null;
-
-  fetchMessages: (
-    friendId: number,
-    type: "private" | "group",
-    page?: number,
-    byFriend?: boolean,
-  ) => Promise<void>;
-  sendMessage: (
-    id: number,
-    type: "private" | "group",
-    content: string,
-    parent_id?: number | null,
-    msgType?: string,
-  ) => Promise<IMessage>;
-  deleteMessage: (messageId: number, conversationId: number) => Promise<void>;
-  deleteAllMessages: (conversationId: number) => Promise<void>;
-  editMessage: (
-    conversationId: number,
-    messageId: number,
-    content: string,
-  ) => Promise<void>;
+  setTypingUser: (user: string | null) => void;
 }

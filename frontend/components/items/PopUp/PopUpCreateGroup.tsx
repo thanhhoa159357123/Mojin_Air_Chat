@@ -1,7 +1,7 @@
 "use client";
 
-import { useConversationHook } from "@/hooks/useConversationHook";
-import { useFriendHook } from "@/hooks/useFriendHook";
+import { useConversations } from "@/hooks/useConversations";
+import { useFriends } from "@/hooks/useFriends";
 import { Check, Search, Users, X } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -14,8 +14,8 @@ interface PopUpCreateGroupProps {
 const PopUpCreateGroup = ({
   onClose,
 }: PopUpCreateGroupProps) => {
-  const { handleCreateConversation } = useConversationHook();
-  const { friends } = useFriendHook();
+  const { handleCreateConversation} = useConversations()
+  const { friends } = useFriends();
   const [groupName, setGroupName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<number[]>([]);

@@ -1,5 +1,5 @@
 import { useAuthHook } from "@/hooks/useAuthHook";
-import { useFriendHook } from "@/hooks/useFriendHook";
+import { useFriends } from "@/hooks/useFriends";
 import {
   Moon,
   X,
@@ -21,7 +21,7 @@ interface IPopUpSettingAccount {
 }
 
 const PopUpSettingAccount = ({ onCloseAddFriend }: IPopUpSettingAccount) => {
-  const { handleAddAvatar } = useFriendHook();
+  const { handleUpdateAvatar } = useFriends();
   const { theme, setTheme } = useTheme();
   const { handleLogout, user, updateAvatarState } = useAuthHook();
   const [mounted, setMounted] = useState(false);
@@ -76,7 +76,7 @@ const PopUpSettingAccount = ({ onCloseAddFriend }: IPopUpSettingAccount) => {
       const secureUrl = cloudinaryData.secure_url; // Thu hoạch chuỗi URL chân lý
 
       // Bước A: Bắn URL về cho Laravel lưu vào DB dưới MySQL
-      await handleAddAvatar(secureUrl);
+      await handleUpdateAvatar(secureUrl);
 
       // Bước B: ĐẬP THẲNG URL VÀO ZUSTAND STORE ĐỂ ĐỒNG BỘ LOCALSTORAGE VÀ REALTIME UI
       updateAvatarState(secureUrl);

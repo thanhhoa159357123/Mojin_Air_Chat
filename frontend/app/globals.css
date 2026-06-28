@@ -182,91 +182,47 @@
    - muted = tối hơn background
    ============================================== */
 .dark {
-  --background: oklch(0.18 0.015 145);
-  --foreground: oklch(0.96 0.01 145);
+  /* 🌟 NỀN TẢNG: Chuyển sang xám đen sâu, ánh xanh matcha cực nhẹ để giải thoát không gian */
+  --background: oklch(0.14 0.01 145); /* Sâu hơn, giúp bong bóng chat nổi lên */
+  --foreground: oklch(0.98 0.005 145); /* Chữ trắng sáng tinh khiết */
 
-  --card: oklch(0.22 0.02 145);
+  --card: oklch(0.18 0.012 145); /* Khung chứa sidebar hoặc danh sách bạn bè */
   --card-foreground: oklch(0.96 0.01 145);
-  --popover: oklch(0.22 0.02 145);
+  --popover: oklch(0.18 0.012 145);
   --popover-foreground: oklch(0.96 0.01 145);
 
-  --primary: oklch(0.65 0.12 145);
-  --primary-foreground: oklch(0.15 0.02 145);
-  --primary-light: oklch(0.72 0.1 145);
-  --primary-lighter: oklch(0.82 0.06 145);
+  /* 🚀 BONG BÓNG CHAT CHÍNH CHỦ (CỦA BÁC): Xanh lục bảo đậm đà, tương phản cực cao với chữ trắng */
+  --primary: oklch(0.52 0.14 140); /* Emerald/Forest xịn, không bị xỉn màu */
+  --primary-foreground: oklch(0.99 0.005 145);
+  --primary-light: oklch(0.62 0.12 140);
+  --primary-lighter: oklch(0.72 0.1 140);
 
-  --secondary: oklch(0.24 0.03 150);
-  --secondary-foreground: oklch(0.96 0.01 145);
-  --secondary-light: oklch(0.3 0.04 150);
+  /* 👥 BONG BÓNG CHAT CỦA CLONE: Xám đá trầm ấm, giúp text cực kỳ dễ đọc và không tranh chấp với màu của bác */
+  --secondary: oklch(0.22 0.015 145); /* Khối xám matcha trầm */
+  --secondary-foreground: oklch(0.92 0.01 145); /* Chữ của đối phương rõ ràng */
+  --secondary-light: oklch(0.28 0.018 145);
 
-  /* FIX: muted tối hơn background (0.15 < 0.18) */
-  --muted: oklch(0.15 0.01 145);
-  /* FIX: muted-foreground vừa phải, dễ đọc trên nền muted */
-  --muted-foreground: oklch(0.6 0.03 145);
+  /* Đường bo viền và các thành phần phụ phụ */
+  --muted: oklch(0.16 0.01 145);
+  --muted-foreground: oklch(0.65 0.015 145); /* Text giải thích, thời gian */
 
-  --accent: oklch(0.24 0.03 160);
-  --accent-foreground: oklch(0.96 0.01 145);
-  --accent-light: oklch(0.3 0.04 160);
+  --accent: oklch(0.25 0.04 155); /* Màu nhấn khi hover hoặc chọn phần tử */
+  --accent-foreground: oklch(0.98 0.01 145);
 
-  --destructive: oklch(0.7 0.16 25);
-  --destructive-foreground: oklch(0.98 0 0);
+  /* ===== ĐIỀU CHỈNH LẠI HỆ MÀU EXTEND ĐỂ RENDER BUBBLE ===== */
+  /* Tin nhắn của bác gửi (Sếp Hòa) */
+  --forest-dark: oklch(0.48 0.13 140);
+  --forest-darker: oklch(0.38 0.11 140);
 
-  /* ===== FIX: ĐẢO LOGIC lighter/darker ===== */
-  /* Light mode: lighter sáng → dark mode: lighter tối */
+  /* Tin nhắn của tụi clone (Trang Bất Phàm, Liễu Như Yên...) */
+  --matcha-dark: oklch(
+    0.24 0.015 145
+  ); /* Hạ độ sáng xuống sâu để chữ trắng nổi lên */
+  --matcha-darker: oklch(0.28 0.018 145);
 
-  --matcha-lighter: oklch(0.3 0.06 145); /* Tối hơn gốc */
-  --matcha-light: oklch(0.45 0.09 145);
-  --matcha: oklch(0.6 0.12 145); /* Gốc */
-  --matcha-dark: oklch(0.72 0.1 145);
-  --matcha-darker: oklch(0.85 0.06 145); /* Sáng nhất */
-
-  --mint-lighter: oklch(0.35 0.07 160);
-  --mint-light: oklch(0.5 0.11 160);
-  --mint: oklch(0.7 0.15 160);
-  --mint-dark: oklch(0.8 0.12 160);
-  --mint-darker: oklch(0.9 0.06 160);
-
-  --forest-lighter: oklch(0.25 0.05 135);
-  --forest-light: oklch(0.38 0.07 135);
-  --forest: oklch(0.55 0.1 135);
-  --forest-dark: oklch(0.68 0.08 135);
-  --forest-darker: oklch(0.82 0.05 135);
-
-  --sage-lighter: oklch(0.3 0.03 150);
-  --sage-light: oklch(0.45 0.04 150);
-  --sage: oklch(0.55 0.05 150);
-  --sage-dark: oklch(0.68 0.04 150);
-  --sage-darker: oklch(0.82 0.03 150);
-
-  --danger-lighter: oklch(0.4 0.08 25);
-  --danger-light: oklch(0.55 0.12 25);
-  --danger: oklch(0.7 0.16 25);
-  --danger-dark: oklch(0.82 0.1 25);
-
-  --lavender-lighter: oklch(0.35 0.06 290);
-  --lavender-light: oklch(0.5 0.1 290);
-  --lavender: oklch(0.7 0.14 290);
-  --lavender-dark: oklch(0.82 0.1 290);
-
-  /* FIX: border sáng hơn để thấy rõ trên nền tối */
-  --border: oklch(0.3 0.02 145);
-  --input: oklch(0.24 0.02 145);
-  --ring: oklch(0.65 0.12 145);
-
-  --chart-1: oklch(0.65 0.12 145);
-  --chart-2: oklch(0.55 0.1 135);
-  --chart-3: oklch(0.7 0.15 160);
-  --chart-4: oklch(0.4 0.08 145);
-  --chart-5: oklch(0.75 0.14 290);
-
-  --sidebar: oklch(0.16 0.015 145);
-  --sidebar-foreground: oklch(0.96 0.01 145);
-  --sidebar-primary: oklch(0.65 0.12 145);
-  --sidebar-primary-foreground: oklch(0.15 0.02 145);
-  --sidebar-accent: oklch(0.24 0.03 160);
-  --sidebar-accent-foreground: oklch(0.96 0.01 145);
-  --sidebar-border: oklch(0.3 0.02 145);
-  --sidebar-ring: oklch(0.65 0.12 145);
+  --border: oklch(0.22 0.01 145);
+  --input: oklch(0.18 0.01 145);
+  --ring: oklch(0.52 0.14 140);
 }
 
 /* ===== ANIMATIONS ===== */
@@ -374,15 +330,6 @@
     @apply bg-background text-foreground;
   }
 
-  /* 💡 ÉP SMOOTH SCROLL CHO TẤT CẢ PHÂN VÙNG CÓ CHỨA SCROLLBAR */
-  html,
-  body,
-  div[overflow-y-auto],
-  .overflow-y-auto {
-    scroll-behavior: smooth !important;
-    -webkit-overflow-scrolling: touch; /* Hỗ trợ mượt mà trên Safari/Mobile */
-  }
-
   .dark,
   .dark *,
   :root,
@@ -397,10 +344,9 @@
   .fixed,
   [class*="PopUp"],
   div[class*="fixed"] {
-    /* Cho phép các phân vùng đặc biệt này được quyền transition các thuộc tính chuyển động hình học */
-    transition-property:
-      flex, min-width, width, opacity, margin, transform, scale !important;
-    transition-duration: 300ms !important; /* Hoặc 500ms tùy bác muốn */
+    /* 💡 CHỈ giữ lại các thuộc tính hình học layout, XÓA BỎ transform và scale! */
+    transition-property: flex, min-width, width, margin, opacity !important;
+    transition-duration: 300ms !important;
   }
 
   /* Tối ưu thanh cuộn nhưng không phá vỡ cấu hình mượt */

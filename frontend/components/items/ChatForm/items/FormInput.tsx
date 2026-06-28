@@ -14,7 +14,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useInputRefHook } from "../hooks/useInputRefHook";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useConversationStore } from "@/stores/useConversationStore"; // 💡 RƯỚC CHÂN LÝ MỚI VÀO ĐÂY
-import { useRef } from "react";
 
 interface FormInputProps {
   inputHookData: ReturnType<typeof useInputRefHook>;

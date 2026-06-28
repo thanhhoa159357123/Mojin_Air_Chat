@@ -16,13 +16,12 @@ export const searchFriends = async (
   return response.data;
 };
 
-export const addFriend = async (
-  friendId: number,
-): Promise<{ message: string }> => {
+export const addFriend = async (friendId: number): Promise<IFriend> => {
   const response = await axiosClient.post("/friends/add", {
     friend_id: friendId,
   });
-  return response.data;
+  // Trả về cục data friend thực sự chứ không trả về cái chữ "message"
+  return response.data?.data || response.data; 
 };
 
 export const getFriendRequests = async (): Promise<{ data: IFriend[] }> => {

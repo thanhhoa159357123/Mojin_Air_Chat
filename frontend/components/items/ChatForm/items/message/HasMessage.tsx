@@ -9,12 +9,12 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
-} from "lucide-react"; // 💡 Thêm AlertCircle
+} from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IConversation } from "@/types/conversation";
 import Image from "next/image";
-import { useChatStore } from "@/stores/useChatStore";
-import { useChatHook } from "@/hooks/useChatHook";
+import { useQueryClient } from "@tanstack/react-query"; // 💡 GỌI VŨ KHÍ MỚI
+import { useChats } from "@/hooks/useChats";
 
 interface HasMessageProps {
   isThem: boolean | null;
@@ -44,7 +44,10 @@ const HasMessage = ({
   startEditing,
 }: HasMessageProps) => {
   const user = useAuthStore((state) => state.user);
-  const { handleSendMessage } = useChatHook(selectConversation);
+  
+  // 💡 CHUYỂN SANG DÙNG useChats và queryClient
+  const queryClient = useQueryClient();
+  const { handleSendMessage } = useChats(selectConversation);
 
   const senderName = msg.sender
     ? `${msg.sender.last_name} ${msg.sender.first_name}`.trim()
@@ -55,6 +58,7 @@ const HasMessage = ({
     if (typeof contentData === "string") {
       try {
         return JSON.parse(contentData);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         return { text: contentData, images: [], files: [] };
       }
@@ -148,7 +152,7 @@ const HasMessage = ({
             !isThem
               ? msg.type === "text" || msg.type === "mixed"
                 ? msg.isError
-                  ? "bg-destructive/15 text-destructive rounded-2xl rounded-br-sm border border-destructive/30 shadow-xs" // 🚨 MỚI: BÊN MÌNH GỬI LỖI -> ĐỔI SANG ĐỎ NHẠT KHÔNG KHƯNG UI
+                  ? "bg-destructive/15 text-destructive rounded-2xl rounded-br-sm border border-destructive/30 shadow-xs"
                   : "bg-linear-to-br from-primary to-forest-dark text-white rounded-2xl rounded-br-sm shadow-md"
                 : ""
               : msg.type === "text" || msg.type === "mixed"
@@ -211,7 +215,6 @@ const HasMessage = ({
                         key={idx}
                         className="relative overflow-hidden rounded-lg"
                       >
-                        {/* 🚀 CHỐT HẠ: Dùng <img> thuần của HTML, vứt thằng <Image> của Next.js đi! */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={url}
@@ -233,7 +236,6 @@ const HasMessage = ({
                           }
                         />
 
-                        {/* 🚀 VÒNG XOAY SPINNER HIỆN Ở GIỮA ẢNH ĐANG TẢI (GIỮ NGUYÊN) */}
                         {(msg as any).isSending && (
                           <div className="absolute inset-0 m-auto flex items-center justify-center pointer-events-none">
                             <div className="bg-black/50 p-2 rounded-full shadow-lg backdrop-blur-sm">
@@ -257,7 +259,6 @@ const HasMessage = ({
                       ? fileObj.name
                       : getFileNameFromUrl(fileObj);
 
-                    // 🚀 LỚP 1: Ép Cloudinary cấu hình Header Attachment (Tải về máy, cấm mở tab mới)
                     if (finalUrl && finalUrl.includes("res.cloudinary.com")) {
                       finalUrl = finalUrl.replace(
                         "/upload/",
@@ -274,7 +275,6 @@ const HasMessage = ({
                           href={msg.isError ? undefined : finalUrl}
                           target="_blank"
                           rel="noreferrer"
-                          // 🚀 LỚP 2: Ép trình duyệt đặt lại tên file gốc siêu sạch khi lưu xuống ổ cứng
                           download={finalName}
                           className={`flex items-center gap-2 w-full truncate text-xs font-medium ${msg.isError ? "pointer-events-none" : "hover:underline"}`}
                         >
@@ -306,7 +306,7 @@ const HasMessage = ({
           )}
         </div>
 
-        {/* ACTION BUTTONS (❌ Không cho Sửa/Reply nếu tin nhắn đang bị lỗi) */}
+        {/* ACTION BUTTONS */}
         {!msg.isError && (
           <div
             className={`flex items-center gap-0.5 invisible group-hover:visible transition-all duration-200 text-muted-foreground shrink-0 ${!isThem ? "flex-row-reverse" : "flex-row"}`}
@@ -345,24 +345,24 @@ const HasMessage = ({
         )}
       </div>
 
-      {/* 🚨 DÒNG TEXT BÁO LỖI: BIẾN THÀNH NÚT BẤM GỬI LẠI SIÊU CẤP VIP PRO */}
+      {/* 🚨 NÚT GỬI LẠI ĐÃ ĐƯỢC CHUYỂN SANG DÙNG TANSTACK QUERY CACHE */}
       {msg.isError && (
         <button
           onClick={() => {
-            // 1. Cho tin nhắn này quay lại trạng thái đang gửi (Hết lỗi)
-            useChatStore.setState((state) => ({
-              messages: state.messages.map((m) =>
-                m.id === msg.id ? { ...m, isError: false } : m,
-              ),
-            }));
+            // 1. Xóa thẳng tin nhắn lỗi này khỏi Cache của TanStack Query
+            queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
+              if (!old) return old;
+              return {
+                ...old,
+                pages: old.pages.map((page: any) => ({
+                  ...page,
+                  data: page.data.filter((m: any) => m.id !== msg.id),
+                })),
+              };
+            });
 
-            // 2. Kích hoạt hàm gửi lại chính cái nội dung này
+            // 2. Bắn lại API (Nó sẽ tự đẻ ra 1 cục Fake Message mới đang xoay vòng vòng siêu đẹp)
             handleSendMessage(msg.content, msg.parent_id, msg.type);
-
-            // 3. Xoá mẹ cái tin nhắn lỗi cũ này đi vì hàm handleSendMessage ở trên nó sẽ tự đẻ ra 1 cái tin optimistic mới tinh tiếp theo!
-            useChatStore.setState((state) => ({
-              messages: state.messages.filter((m) => m.id !== msg.id),
-            }));
           }}
           className="flex items-center gap-1 text-[11px] text-destructive font-medium mt-0.5 pr-1 hover:underline cursor-pointer group active:scale-95 transition-transform animate-in fade-in duration-200"
           title="Bấm để gửi lại tin nhắn"

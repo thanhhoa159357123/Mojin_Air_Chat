@@ -14,6 +14,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(UserSeeder::class);
+        $this->call([
+            UserSeeder::class,
+            FriendSeeder::class, // 💡 Thêm dòng này vào đây
+            MessageSeeder::class,
+        ]);
     }
 }

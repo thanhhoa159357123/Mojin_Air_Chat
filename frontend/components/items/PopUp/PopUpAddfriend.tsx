@@ -1,8 +1,7 @@
 "use client";
 
-import { useFriendHook } from "@/hooks/useFriendHook";
 import { useConversationStore } from "@/stores/useConversationStore";
-import { useFriendStore } from "@/stores/useFriendStore";
+import { useFriends } from "@/hooks/useFriends"; // 💡 Gọi Hook TanStack Query tổng lực
 import { IConversation } from "@/types/conversation";
 import { Loader2, Search, X } from "lucide-react";
 import { motion } from "motion/react";
@@ -10,60 +9,59 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 interface IPopUpAddFriend {
-  addFriend: (friendId: number) => Promise<void>;
-  searchFriends: (query: string, page?: number) => Promise<void>;
   onCloseAddFriend: () => void;
 }
 
-const PopUpAddfriend = ({
-  addFriend,
-  searchFriends,
-  onCloseAddFriend,
-}: IPopUpAddFriend) => {
-  const searchResults = useFriendStore((state) => state.searchResults);
-  const { loading, error, hasMore } = useFriendHook();
+const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const setSelectConversation = useConversationStore(
-    (state) => state.setSelectConversation,
-  );
+  const setSelectConversation = useConversationStore((state) => state.setSelectConversation);
+  const currentConversations = useConversationStore((state) => state.conversations);
 
-  // Trạm thu phí: Dùng để check xem người dùng đã cuộn tới đáy chưa
+  // 💡 1. KÉO CÁC HÀM TÁC CHIẾN TỪ TANSTACK QUERY QUỐC DÂN
+  const { addFriend, useSearchFriendsInfinite } = useFriends();
+
+  // 💡 2. DEBOUNCE SEARCH THEO CÁCH SẠCH SẼ NHẤT
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // 💡 3. TRIỆU HỒI LUỒNG TÌM KIẾM VÔ HẠN (Tự động kích hoạt khi debouncedSearch có chữ)
+  const {
+    data: searchData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isSearchLoading,
+    error: searchError,
+  } = useSearchFriendsInfinite(debouncedSearch);
+
+  // Gom đống mảng phân trang của các page về thành 1 mảng phẳng duy nhất để map() ra UI
+  const searchResults = searchData?.pages.flatMap((page) => page.data) || [];
+
+  // Trạm thu phí tự động bằng tay
   const observerRef = useRef<HTMLDivElement | null>(null);
 
-  // Tuyệt chiêu 1: Debounce search (luôn reset về trang 1 khi gõ từ khóa mới)
+  // 💡 4. INTERSECTION OBSERVER BÂY GIỜ CHỈ CÒN ĐÚNG 1 NHIỆM VỤ: GỌI fetchNextPage()
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm.trim() !== "") {
-        setPage(1); // Gõ cái mới là phải múc lại từ trang 1
-        searchFriends(searchTerm, 1);
-      }
-    }, 500);
+    if (!hasNextPage) return;
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, searchFriends]);
-
-  // Tuyệt chiêu 2: Intersection Observer xử lý cuộn vô cực
-  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        // Nếu cục ref lòi lên màn hình + còn data + không phải đang loading
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          const nextPage = page + 1;
-          setPage(nextPage);
-          searchFriends(searchTerm, nextPage); // Phập trang tiếp theo
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          fetchNextPage(); // Thần chú tự sang trang ngầm của TanStack Query
         }
       },
-      { threshold: 1.0 }, // Cuộn thấy 100% cục ref mới trigger
+      { threshold: 1.0 }
     );
 
-    if (observerRef.current) {
-      observer.observe(observerRef.current);
-    }
-
+    if (observerRef.current) observer.observe(observerRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loading, page, searchTerm, searchFriends]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <>
@@ -80,12 +78,10 @@ const PopUpAddfriend = ({
         exit={{ opacity: 0, scale: 0.9, x: "-50%", y: "-50%" }}
         className="fixed top-1/2 left-1/2 z-50 w-full max-w-112.5"
       >
-        <div className="w-112.5 bg-card rounded-3xl shadow-2xl border border-border overflow-hidden animate-scale-in">
-          {/* Header - Matcha style */}
+        <div className="w-112.5 bg-card rounded-3xl shadow-2xl border border-border overflow-hidden">
+          {/* Header */}
           <div className="px-5 py-3 border-b border-border bg-secondary/50 flex justify-between items-center">
-            <h2 className="text-xl font-extrabold text-primary tracking-tight">
-              Thêm bạn bè
-            </h2>
+            <h2 className="text-xl font-extrabold text-primary tracking-tight">Thêm bạn bè</h2>
             <div
               className="size-8 rounded-full bg-secondary flex items-center justify-center cursor-pointer hover:bg-accent transition-all"
               onClick={onCloseAddFriend}
@@ -105,7 +101,7 @@ const PopUpAddfriend = ({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-3.5 bg-muted/50 border border-border rounded-2xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
               />
-              {loading && page === 1 && (
+              {isSearchLoading && (
                 <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 size-5 text-primary animate-spin" />
               )}
             </div>
@@ -113,59 +109,45 @@ const PopUpAddfriend = ({
             {/* Results List */}
             <div className="mt-8">
               <div className="flex justify-between items-center mb-4 px-1">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
-                  Gợi ý cho bác
-                </p>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Gợi ý cho bác</p>
                 <span className="text-[10px] bg-secondary text-primary px-2 py-0.5 rounded-full font-bold">
-                  {searchResults?.length || 0} người
+                  {searchResults.length} người
                 </span>
               </div>
 
-              {error && (
-                <p className="text-sm text-red-500 px-1 mb-2">{error}</p>
+              {searchError && (
+                <p className="text-sm text-red-500 px-1 mb-2">{(searchError as Error).message}</p>
               )}
 
               <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                {searchResults && searchResults.length > 0 ? (
+                {searchResults.length > 0 ? (
                   <>
                     {searchResults.map((user) => {
-                      // Bí thuật dọn dẹp nút bấm động ở đây cho sạch code
                       const renderActionButton = () => {
-                        switch (user.friendship_status) {
-                          case 1: // Đã là bạn bè -> Hiện nút Nhắn tin (Style Outline/Secondary sang chảnh)
+                        switch (Number(user.friendship_status)) {
+                          case 1: // Đã là bạn bè
                             return (
                               <button
                                 onClick={() => {
-                                  // 💡 BƯỚC 1: Lấy danh sách phòng chat hiện tại từ kho tổng
-                                  const conversationStore =
-                                    useConversationStore.getState();
-                                  const currentConversations =
-                                    conversationStore.conversations;
-
-                                  // 💡 BƯỚC 2: Mò xem trong lịch sử chat có phòng nào chứa khứa này chưa
-                                  const realRoom = currentConversations.find(
-                                    (c) =>
-                                      c.participants?.some(
-                                        (p) => p.id === user.id,
-                                      ),
+                                  // Tìm phòng thật chat lịch sử
+                                  const realRoom = currentConversations.find((c) =>
+                                    c.participants?.some((p) => p.id === user.id)
                                   );
 
                                   if (realRoom) {
-                                    // 🎉 CÓ PHÒNG THẬT: Chọn luôn phòng thật để giữ nguyên tin nhắn cũ
                                     setSelectConversation(realRoom);
                                   } else {
-                                    // 👻 CHƯA CÓ PHÒNG THẬT: Bạn mới tinh chưa chat bao giờ -> Tạo phòng ảo tạm thời
-                                    const fakeRoom: IConversation = {
-                                      id: user.id, // Tạm thời lấy ID khứa này làm ID phòng ảo
+                                    // Bạn mới chưa chat bao giờ -> Fake nhẹ cấu trúc phòng thật gửi xuống
+                                    const fallbackRoom: IConversation = {
+                                      id: user.id,
                                       type: "private",
                                       label: user.full_name,
                                       participants: [user],
                                       updated_at: new Date().toISOString(),
                                     };
-                                    setSelectConversation(fakeRoom);
+                                    setSelectConversation(fallbackRoom);
                                   }
-
-                                  onCloseAddFriend(); // Đóng Pop-up
+                                  onCloseAddFriend();
                                 }}
                                 className="px-4 py-2 bg-secondary text-primary hover:bg-accent border border-border text-[11px] font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-sm cursor-pointer"
                               >
@@ -173,7 +155,7 @@ const PopUpAddfriend = ({
                               </button>
                             );
 
-                          case 0: // Đang chờ kết bạn -> Hiện nút Mờ (Disabled) tránh bấm lại
+                          case 0: // Đang chờ kết bạn
                             return (
                               <button
                                 disabled
@@ -183,7 +165,7 @@ const PopUpAddfriend = ({
                               </button>
                             );
 
-                          default: // Chưa có mối quan hệ (null) -> Nút Kết bạn gốc (Màu nổi bật thu hút)
+                          default: // Chưa có quan hệ -> Gọi mutate addFriend từ TanStack Query
                             return (
                               <button
                                 onClick={() => addFriend(user.id)}
@@ -202,7 +184,6 @@ const PopUpAddfriend = ({
                         >
                           <div className="flex items-center gap-3">
                             {user?.avatar ? (
-                              /* 💡 BẢO BỐI CHỐT HẠ: Ép cứng size-11 (44px) cả rộng lẫn cao, dùng shrink-0 để đéo ai bóp nghẹt được nó, và bắt buộc phải có aspect-square */
                               <div className="w-11 h-11 size-11 aspect-square rounded-full overflow-hidden shadow-sm ring-2 ring-background shrink-0 relative">
                                 <Image
                                   src={user.avatar}
@@ -228,27 +209,20 @@ const PopUpAddfriend = ({
                             </div>
                           </div>
 
-                          {/* Gọi hàm render nút bấm ra đây, sạch sẽ như lau như ly */}
                           {renderActionButton()}
                         </div>
                       );
                     })}
 
-                    {/* Trạm thu phí: Cắm cờ ở đáy danh sách */}
-                    {hasMore && (
-                      <div
-                        ref={observerRef}
-                        className="h-10 flex justify-center items-center mt-2"
-                      >
-                        {loading && (
-                          <Loader2 className="size-5 text-primary animate-spin" />
-                        )}
-                      </div>
-                    )}
+                    {/* Trạm thu phí tự động của TanStack */}
+                    <div ref={observerRef} className="h-10 flex justify-center items-center mt-2">
+                      {isFetchingNextPage && (
+                        <Loader2 className="size-5 text-primary animate-spin" />
+                      )}
+                    </div>
                   </>
                 ) : (
-                  searchTerm.trim() !== "" &&
-                  !loading && (
+                  debouncedSearch.trim() !== "" && !isSearchLoading && (
                     <p className="text-center text-sm text-muted-foreground mt-4">
                       Không tìm thấy anh hào nào mang tên này.
                     </p>

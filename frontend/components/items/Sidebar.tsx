@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useFriendStore } from "@/stores/useFriendStore";
+import { useFriends } from "@/hooks/useFriends";
 import { BellIcon } from "lucide-react";
 import Image from "next/image";
 
@@ -9,7 +9,8 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ onToggleNotification, onToggleSetting }: SidebarProps) => {
-  const pendingCount = useFriendStore((state) => state.friendRequests).length;
+  const { friendRequests } = useFriends();
+  const pendingCount = friendRequests.length;
   const user = useAuthStore((state) => state.user);
   return (
     <div className="flex flex-col items-center justify-center gap-4">

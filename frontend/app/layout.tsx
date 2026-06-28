@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import AppLayout from "./AppLayout";
 import { ThemeProvider } from "@/providers/ThemeProvider";
+import QueryProvider from "./providers";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -33,9 +34,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased font-sans`}
       >
         <ThemeProvider>
-          <Toaster richColors position="top-center" />
-          {/* AppLayout đóng vai trò là khung xương UI chính */}
-          <AppLayout>{children}</AppLayout>
+          <QueryProvider>
+            <Toaster richColors position="top-center" />
+
+            {/* Giờ thì AppLayout và trẻ nhỏ (page.tsx) chạy thoải mái, cam đoan hết sạch lỗi luôn */}
+            <AppLayout>{children}</AppLayout>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

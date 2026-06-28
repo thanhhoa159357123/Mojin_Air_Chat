@@ -5,6 +5,7 @@ import { IFriend } from "./friend";
 export interface IConversation {
   id: number;
   type: "private" | "group";
+  avatar?: string | null; // Chỉ có nhóm mới có avatar, còn private thì lấy avatar của partner
   label: string;
   updated_at: string;
 
@@ -25,31 +26,8 @@ export interface IPartner {
 }
 
 export interface IConversationState {
-  conversations: IConversation[]; // Mảng cuộc trò chuyện
-  loading: boolean;
-  error: string | null;
-
-  selectConversation: IConversation | null; // Cuộc trò chuyện đang được chọn để hiển thị
+  selectConversation: IConversation | null;
   setSelectConversation: (conversation: IConversation | null) => void;
-
-  fetchConversations: () => Promise<void>;
-  createConversation: (
-    label: string,
-    participantIds: number[],
-  ) => Promise<IConversation>;
-  fetchParticipants: (conversationId: number) => Promise<void>;
-  addParticipants: (conversationId: number, userIds: number[]) => Promise<void>;
-  removeParticipants: (
-    conversationId: number,
-    userIds: number[],
-  ) => Promise<void>;
-  markConversationRead: (conversationId: number) => Promise<void>;
-  reset: () => void; // Thêm hàm reset để xóa sạch state khi logout
-  addConversationToState: (conversation: IConversation) => void;
-  updateParticipantStatus: (
-    userId: number,
-    status: "online" | "offline",
-    lastActiveAt?: string,
-  ) => void;
+  reset: () => void;
 
 }

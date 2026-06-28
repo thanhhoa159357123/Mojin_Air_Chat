@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useRef, useState } from "react";
-import { useChatStore } from "@/stores/useChatStore";
+import { useQueryClient } from "@tanstack/react-query"; // 💡 THẦN KHÍ MỚI
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IMessage } from "@/types/message";
-import { useChatHook } from "@/hooks/useChatHook";
+import { useChats } from "@/hooks/useChats";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { sendTypingSignal } from "@/services/conversationService";
-import { toast } from "sonner"; // 💡 Nhớ import sonner hoặc thư viện toast của bác để báo lỗi file nặng
+import { toast } from "sonner";
 
 export interface IAttachmentPreview {
   id: string;
@@ -22,8 +23,10 @@ export const useInputRefHook = () => {
     (state) => state.selectConversation,
   );
 
-  const { handleSendMessage, handleEditMessage } =
-    useChatHook(selectConversation);
+  const queryClient = useQueryClient(); // 💡 Khởi tạo QueryClient để chọc vào Cache
+
+  // 💡 LẤY SÚNG TỪ KHO VŨ KHÍ MỚI
+  const { handleSendMessage, handleEditMessage } = useChats(selectConversation);
 
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const isTypingLockedRef = useRef(false);
@@ -35,24 +38,11 @@ export const useInputRefHook = () => {
   const [inputValue, setInputValue] = useState("");
   const [replyingTo, setReplyingTo] = useState<IMessage | null>(null);
 
-  // 💡 Hàng chờ BÂY GIỜ CHỈ DÀNH CHO ẢNH (Vì file nó bắn đi luôn rồi đéo bao giờ vào đây)
   const [attachments, setAttachments] = useState<IAttachmentPreview[]>([]);
 
   // 1. HÀM LÕI: UPLOAD LÊN CLOUDINARY
   const uploadSingleFileToCloudinary = async (item: IAttachmentPreview) => {
     const fileToUpload = item.file;
-
-    // if (item.mode === "image") {
-    //   try {
-    //     fileToUpload = await compressImage(item.file, {
-    //       maxWidth: 1920,
-    //       quality: 0.7,
-    //     });
-    //   } catch (e) {
-    //     console.error("Nén ảnh lỗi, giữ nguyên ảnh gốc", e);
-    //   }
-    // }
-
     const formData = new FormData();
     formData.append("file", fileToUpload);
 
@@ -79,14 +69,13 @@ export const useInputRefHook = () => {
     }
   };
 
-  // 🚀 2. LUỒNG BẮN TỈA: XỬ LÝ FILE ĐỘC LẬP (Không vào hàng chờ)
+  // 🚀 2. LUỒNG BẮN TỈA: XỬ LÝ FILE ĐỘC LẬP
   const processDirectFileUploads = async (files: FileList) => {
     if (!selectConversation) return;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      // Validator: Giới hạn 25MB cho file thô
       if (file.size > 25 * 1024 * 1024) {
         toast.error(`Tệp "${file.name}" quá lớn. Vui lòng gửi file dưới 25MB!`);
         continue;
@@ -100,26 +89,23 @@ export const useInputRefHook = () => {
       };
 
       try {
-        // Tải thẳng lên Cloudinary
         const uploadedUrl = await uploadSingleFileToCloudinary(tempItem);
-
-        // Đóng gói Payload CHỈ CHỨA MỘT FILE DUY NHẤT, ĐÉO CÓ TEXT, ĐÉO CÓ ẢNH
         const filePayload = JSON.stringify({
           text: "",
           images: [],
           files: [{ url: uploadedUrl, name: file.name }],
         });
 
-        // Bắn lên Backend tạo tin nhắn luôn!
+        // Gọi hàm của TanStack Query
         await handleSendMessage(filePayload, replyingTo?.id || null, "mixed");
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         toast.error(`Lỗi khi gửi tệp: ${file.name}`);
       }
     }
   };
 
-  // 🚀 3. LUỒNG HÀNG CHỜ: XỬ LÝ ẢNH (Nạp vào Preview UI)
+  // 🚀 3. LUỒNG HÀNG CHỜ: XỬ LÝ ẢNH
   const processImageToQueue = (files: FileList) => {
     const newAttachments: IAttachmentPreview[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -133,7 +119,6 @@ export const useInputRefHook = () => {
     setAttachments((prev) => [...prev, ...newAttachments]);
   };
 
-  // 🎯 4. HÀM CHIA LUỒNG KHI CHỌN FILE/ẢNH
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     mode: "image" | "file",
@@ -142,17 +127,13 @@ export const useInputRefHook = () => {
     if (!files || files.length === 0) return;
 
     if (mode === "file") {
-      // Nếu là FILE -> GỌI HÀM BẮN TỈA TRỰC TIẾP
       processDirectFileUploads(files);
     } else {
-      // Nếu là ẢNH -> GỌI HÀM NẠP HÀNG CHỜ
       processImageToQueue(files);
     }
-
-    e.target.value = ""; // Reset input
+    e.target.value = "";
   };
 
-  // 🎯 5. XỬ LÝ SỰ KIỆN PASTE TỪ BÀN PHÍM (Ctrl+V)
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -161,13 +142,11 @@ export const useInputRefHook = () => {
         const file = items[i].getAsFile();
         if (file) {
           e.preventDefault();
-          // Paste ảnh thì nhét vào Queue
           const dataTransfer = new DataTransfer();
           dataTransfer.items.add(file);
           processImageToQueue(dataTransfer.files);
         }
       }
-      // Khúc này nếu mốt bác muốn cho user Copy/Paste Cả file Excel từ desktop vào thì bác có thể mở rộng đoạn này gọi processDirectFileUploads. Hiện tại cứ ưu tiên ảnh.
     }
   };
 
@@ -175,7 +154,7 @@ export const useInputRefHook = () => {
   const onSend = async () => {
     const trimmedText = inputValue.trim();
     const hasText = trimmedText.length > 0;
-    const hasAttachments = attachments.length > 0; // Lúc này attachments CHỈ TOÀN LÀ ẢNH
+    const hasAttachments = attachments.length > 0;
 
     if ((!hasText && !hasAttachments) || !selectConversation) return;
 
@@ -194,8 +173,6 @@ export const useInputRefHook = () => {
       return;
     }
 
-    // Sao chép và dọn dẹp UI
-    const imagesToSend = [...attachments];
     setInputValue("");
     setAttachments([]);
     setReplyingTo(null);
@@ -210,68 +187,7 @@ export const useInputRefHook = () => {
       }
       return;
     }
-
-    // Trường hợp 2: Có kèm ẢNH (Text + Ảnh)
-    const tempId = Date.now(); // Tạo ID ảo
-    const previewUrls = imagesToSend.map((item) => item.previewUrl);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fakeMessage: any = {
-      id: tempId,
-      conversation_id: selectConversation.id,
-      user_id: user?.id,
-      type: "mixed",
-      content: JSON.stringify({
-        text: textToSend,
-        images: previewUrls,
-        files: [],
-      }),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      edit_count: 0,
-      sender: user,
-      isSending: true, // 💡 Cờ đánh dấu đây là hàng Fake đang tải!
-    };
-
-    // 🚀 BƯỚC 2: BƠM THẲNG LÊN MÀN HÌNH KHUNG CHAT TRONG 0ms
-    useChatStore.setState((state) => ({
-      messages: [...state.messages, fakeMessage],
-    }));
-
-    try {
-      // 🚀 BƯỚC 3: ÂM THẦM UP CLOUDINARY DƯỚI NỀN
-      const uploadPromises = imagesToSend.map((item) =>
-        uploadSingleFileToCloudinary(item),
-      );
-      const imageUrls = await Promise.all(uploadPromises);
-
-      const mixedPayload = JSON.stringify({
-        text: textToSend,
-        images: imageUrls,
-        files: [],
-      });
-
-      // Gọi API thật
-      await handleSendMessage(mixedPayload, replyingTo?.id || null, "mixed");
-
-      // 🚀 BƯỚC 4: API GỌI THÀNH CÔNG -> XOÁ TIN NHẮN ẢO ĐI
-      // (Vì Pusher và API nó sẽ tự đẻ ra cái tin nhắn thật đập vào Store rồi)
-      useChatStore.setState((state) => ({
-        messages: state.messages.filter((m) => m.id !== tempId),
-      }));
-    } catch (error) {
-      console.error("Lỗi gửi tin nhắn chứa ảnh:", error);
-
-      // Lỗi mạng/Cloudinary? Biến cái tin nhắn ảo thành tin nhắn Lỗi (Màu đỏ cho user bấm thử lại)
-      useChatStore.setState((state) => ({
-        messages: state.messages.map((m) =>
-          m.id === tempId ? { ...m, isSending: false, isError: true } : m,
-        ),
-      }));
-    }
   };
-
-  // ... Đống handleTextChange, removeAttachment, startEditing giữ nguyên y như cũ
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);

@@ -1,4 +1,3 @@
-// types/friend.ts
 export interface ILastMessage {
   content: string;
   time: string; // Chuỗi thân thiện đọc được từ diffForHumans() (e.g., "1 hour ago")
@@ -23,20 +22,8 @@ export interface IFriend {
   updated_at?: string;
 }
 
+// 💡 KIỂU DỮ LIỆU ĐÃ ĐƯỢC TINH GIẢN: Chỉ giữ lại các state phục vụ UI (nếu có)
 export interface IFriendState {
-  friends: IFriend[];
-  searchResults: IFriend[];
-  friendRequests: IFriend[]; // Chứa các lời mời kết bạn đang chờ xử lý
-  loading: boolean;
-  loadingRequests: boolean; // Biến loading riêng cho việc fetch lời mời kết bạn
   error: string | null;
-  hasMore: boolean; // Để biết còn data không mà cuộn (Infinite Scroll)
-
-  getFriends: () => Promise<void>;
-  searchFriends: (query: string, page?: number) => Promise<void>;
-  addFriend: (friendId: number) => Promise<void>;
-  fetchFriendRequests: () => Promise<void>;
-  acceptFriendRequest: (friendId: number) => Promise<void>;
-  rejectFriendRequest: (friendId: number) => Promise<void>;
-  addAvatar: (avtUrl: string) => Promise<void>;
+  setError: (msg: string | null) => void;
 }

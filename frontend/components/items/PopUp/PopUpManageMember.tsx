@@ -1,7 +1,7 @@
 "use client";
 
-import { useConversationHook } from "@/hooks/useConversationHook";
-import { useFriendHook } from "@/hooks/useFriendHook";
+import { useConversations } from "@/hooks/useConversations";
+import { useFriends } from "@/hooks/useFriends";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { Check, Search, UserMinus, X } from "lucide-react";
@@ -14,12 +14,13 @@ interface PopUpManageMemberProps {
 }
 
 const PopUpManageMember = ({ onClose }: PopUpManageMemberProps) => {
+
   const {
     handleAddParticipants,
-    handleFetchParticipants,
     handleRemoveParticipants,
-  } = useConversationHook();
-  const { friends } = useFriendHook();
+    handleFetchParticipants
+  } = useConversations();
+  const { friends } = useFriends();
   const user = useAuthStore((state) => state.user);
   const selectConversation = useConversationStore(
     (state) => state.selectConversation,

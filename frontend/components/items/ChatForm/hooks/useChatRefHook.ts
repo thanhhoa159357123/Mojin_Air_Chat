@@ -13,20 +13,24 @@ export const useChatRefHook = (
   const user = useAuthStore((state) => state.user);
   const [showScrollDown, setShowScrollDown] = useState(false);
 
-  // 💡 CHÂN LÝ: Chỉ cần 2 biến này để khống chế toàn bộ Pagination!
-  const isFetchingOlderRef = useRef<boolean>(false);
-  const distanceFromBottomRef = useRef<number>(0);
-
-  const currentRoomIdRef = useRef<number | undefined>(undefined);
   const isFirstLoadRef = useRef<boolean>(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // 🌟 EFFECT 0: Đổi phòng chat là clear não
+  // 💡 Lưu ID tin nhắn cuối cùng để phân biệt "tin mới realtime" vs "load tin cũ pagination"
+  const lastMessageIdRef = useRef<number | string | null>(null);
+
+  // EFFECT 0: Đổi phòng → reset não
   useEffect(() => {
-    currentRoomIdRef.current = selectedFriendId;
-    isFetchingOlderRef.current = false;
     isFirstLoadRef.current = true;
+    lastMessageIdRef.current = null;
   }, [selectedFriendId]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUnreadCount(0);
+  }, [selectedFriendId]);
+
+  // Trong file useChatRefHook.ts, đoạn handleScroll
   const handleScroll = () => {
     const container = containerRef.current;
     if (!container) return;
@@ -34,96 +38,99 @@ export const useChatRefHook = (
     const { scrollTop, scrollHeight, clientHeight } = container;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
     setShowScrollDown(!isNearBottom);
+    if (isNearBottom) setUnreadCount(0);
 
-    // CHẠM ĐỈNH -> GỌI API LOAD CŨ
-    if (
-      scrollTop <= 10 &&
-      hasMore &&
-      !loadingMore &&
-      !isFetchingOlderRef.current
-    ) {
-      isFetchingOlderRef.current = true;
-
-      // 🚀 BÍ THUẬT: Tính toán khoảng cách hiện tại so với ĐÁY của khung chat
-      distanceFromBottomRef.current = scrollHeight - scrollTop;
-
-      // Khóa Smooth Scroll để né giật lùi
-      container.style.scrollBehavior = "auto";
+    // 💡 TRICK GIỮ SCROLL ANCHOR CHUẨN XỊN
+    // Khi cuộn chạm đỉnh (scrollTop = 0) -> Load thêm
+    if (scrollTop === 0 && hasMore && !loadingMore) {
+      // Lưu lại chiều cao hiện tại trước khi data mới ập vào
+      const previousScrollHeight = scrollHeight;
 
       onLoadMore?.();
+
+      // Đợi data mới map xong, cuộn trả lại đúng vị trí cũ
+      setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTop =
+            containerRef.current.scrollHeight - previousScrollHeight;
+        }
+      }, 50);
     }
   };
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior: "auto" | "smooth" = "smooth") => {
     if (containerRef.current) {
       containerRef.current.scrollTo({
         top: containerRef.current.scrollHeight,
-        behavior: "smooth",
+        behavior,
       });
     }
   };
 
-  // 🚀 EFFECT 1: NGƯNG ĐỌNG THỜI GIAN VÀ NEO DOM ĐỨNG IM TRƯỚC KHI VẼ
+  // ======================================================
+  // 🚀 EFFECT 1: VÀO PHÒNG LẦN ĐẦU → SCROLL XUỐNG ĐÁY
+  // ======================================================
+  // PHẢI DÙNG useLayoutEffect (không phải useEffect)!
+  //
+  // Lý do:
+  // - useEffect chạy SAU KHI browser paint
+  //   → Browser đã vẽ messages với scrollTop = 0 (tin nhắn 1)
+  //   → Sau đó mới scroll xuống đáy
+  //   → User thấy "phóng nhanh từ tin 1 tới tin cuối" 👎
+  //
+  // - useLayoutEffect chạy TRƯỚC KHI browser paint (synchronous)
+  //   → Set scrollTop xong rồi browser mới vẽ
+  //   → User không bao giờ thấy trạng thái trung gian 👍
+  // ======================================================
   useLayoutEffect(() => {
     const container = containerRef.current;
-    if (!container || !isFetchingOlderRef.current) return;
+    if (!container || messages.length === 0) return;
+    if (!isFirstLoadRef.current) return;
 
-    // Lấy chiều cao mới ngay khi React vừa đắp DOM vào
-    const newScrollHeight = container.scrollHeight;
+    // Set scrollTop trực tiếp = instant tuyệt đối, không có animation
+    container.scrollTop = container.scrollHeight;
+    isFirstLoadRef.current = false;
 
-    // Tính toán vị trí neo chuẩn pixel
-    const targetScrollTop = newScrollHeight - distanceFromBottomRef.current;
+    // 💡 Ghi lại ID tin nhắn cuối để EFFECT 2 không bị nhầm là "có tin mới realtime"
+    const lastMessage = messages[messages.length - 1];
+    lastMessageIdRef.current = lastMessage?.id ?? null;
+  }, [messages]);
 
-    // 💡 CHIÊU THỨC ÉP CƯỠNG BỨC TẠI HAI KHUNG HÌNH LIÊN TIẾP
-    container.scrollTop = targetScrollTop;
+  const prevMessagesLengthRef = useRef(messages.length);
 
-    const jq = requestAnimationFrame(() => {
-      container.scrollTop = targetScrollTop; // Khóa chết phát nữa triệt tiêu hoàn toàn cú giật ngược từ 1 về 50
-      isFetchingOlderRef.current = false;
-      container.style.scrollBehavior = "smooth";
-    });
-
-    return () => cancelAnimationFrame(jq);
-  }, [messages]); // 💡 Chỉ chạy khi mảng tin nhắn thực sự thay đổi/
-
-  // 🌟 EFFECT 2: XỬ LÝ VÀO PHÒNG MỚI HOẶC CÓ TIN NHẮN REALTIME ĐẾN
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || messages.length === 0 || isFetchingOlderRef.current)
-      return;
+    if (!container || messages.length === 0) return;
+    if (isFirstLoadRef.current) return;
 
     const lastMessage = messages[messages.length - 1];
     const isMyMessage = lastMessage?.user_id === user?.id;
 
-    // setTimeout bọc thép để chắc chắn ảnh/DOM nhét xong mới đẩy xuống đáy
-    const timer = setTimeout(() => {
-      requestAnimationFrame(() => {
-        if (isFetchingOlderRef.current) return;
+    // Chỉ tính là có tin nhắn mới nếu độ dài mảng tăng lên
+    const hasNewMessage = messages.length > prevMessagesLengthRef.current;
+    prevMessagesLengthRef.current = messages.length;
 
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        const isNearBottom = scrollHeight - scrollTop - clientHeight < 400;
+    if (!hasNewMessage) return;
 
-        if (isFirstLoadRef.current) {
-          container.style.scrollBehavior = "auto";
-          container.scrollTo({ top: container.scrollHeight });
-          container.style.scrollBehavior = "smooth";
-          isFirstLoadRef.current = false;
-        } else if (isMyMessage || isNearBottom) {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: "smooth",
-          });
-        }
-      });
-    }, 50);
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 400;
 
-    return () => clearTimeout(timer);
-  }, [messages, selectedFriendId, user?.id]);
+    // 1. NẾU MÌNH LÀ NGƯỜI GỬI HOẶC ĐANG Ở GẦN ĐÁY -> CUỘN NGAY
+    if (isMyMessage || isNearBottom) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      setUnreadCount(0); // Reset bộ đếm khi đã cuộn xuống
+    } else {
+      // 2. NẾU ĐANG XEM TIN CŨ (KHÔNG Ở ĐÁY) -> TĂNG BỘ ĐẾM
+      setUnreadCount((prev) => prev + 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   return {
     containerRef,
     showScrollDown,
     handleScroll,
-    scrollToBottom,
+    scrollToBottom: () => scrollToBottom("smooth"),
+    unreadCount,
   };
 };

@@ -10,16 +10,15 @@ import PopUpNotificationDeleteMessage from "@/components/items/PopUp/PopUpNotifi
 import PopUpSettingAccount from "@/components/items/PopUp/PopUpSettingAccount";
 import PopUpManageMember from "@/components/items/PopUp/PopUpManageMember";
 import Sidebar from "@/components/items/Sidebar";
-import { useChatHook } from "@/hooks/useChatHook";
-import { useFriendHook } from "@/hooks/useFriendHook";
-import { useFriendPolling } from "@/hooks/useFriendPolling";
+import { useChats } from "@/hooks/useChats";
+import { useFriendPusher } from "@/hooks/useFriendPusher";
 import { usePopUpManager } from "@/hooks/usePopUpManager";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useConversationStore } from "@/stores/useConversationStore";
 import NonConversation from "@/components/NonConversation";
-import { useAuthStore } from "@/stores/useAuthStore";
+// import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function Home() {
   const selectConversation = useConversationStore(
@@ -27,21 +26,13 @@ export default function Home() {
   );
 
   // 💡 1. Bốc mắt thần và cờ loading ra
-  const { user, loading } = useAuthStore();
+  // const { user, loading } = useAuthStore();
 
-  useFriendPolling();
+  useFriendPusher();
   const { isOpen, open, close } = usePopUpManager();
 
-  const {
-    handleAddFriend,
-    handleAcceptFriendRequest,
-    handleRejectFriendRequest,
-
-    searchFriends,
-  } = useFriendHook();
-
   const { handleDeleteMessage, handleSendMessage, handleAllDeleteMessages } =
-    useChatHook(selectConversation);
+    useChats(selectConversation);
 
   const [isOptionOpen, setIsOptionOpen] = useState(false);
   const [chatDeleteMessageId, setChatDeleteMessageId] = useState<number | null>(
@@ -106,22 +97,14 @@ export default function Home() {
       {/* Pop-up notification với AnimatePresence */}
       <AnimatePresence>
         {isOpen.noti && (
-          <PopUpNotification
-            onCloseNotification={() => close("noti")}
-            acceptFriendRequest={handleAcceptFriendRequest}
-            rejectFriendRequest={handleRejectFriendRequest}
-          />
+          <PopUpNotification onCloseNotification={() => close("noti")} />
         )}
       </AnimatePresence>
 
       {/* Pop-up add friend (chưa có trigger) */}
       <AnimatePresence>
         {isOpen.addFriend && (
-          <PopUpAddfriend
-            addFriend={handleAddFriend}
-            onCloseAddFriend={() => close("addFriend")}
-            searchFriends={searchFriends}
-          />
+          <PopUpAddfriend onCloseAddFriend={() => close("addFriend")} />
         )}
       </AnimatePresence>
 

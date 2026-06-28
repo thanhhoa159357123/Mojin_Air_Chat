@@ -1,8 +1,10 @@
-import { useFriendStore } from "@/stores/useFriendStore";
+import { useFriends } from "@/hooks/useFriends";
 import { useState } from "react";
 
 export const usePopUpManager = () => {
-  const { fetchFriendRequests } = useFriendStore();
+  // 💡 Lấy hàm refetch xịn vừa ném ra ngoài
+  const { refetchFriendRequests } = useFriends();
+  
   const [popups, setPopups] = useState({
     addFriend: false,
     noti: false,
@@ -12,7 +14,10 @@ export const usePopUpManager = () => {
 
   // Hàm "tổng đài" xử lý mọi loại popup
   const toggle = (name: keyof typeof popups, state: boolean) => {
-    if (name === "noti" && state === true) fetchFriendRequests();
+    // 💡 THAY ĐỔI Ở ĐÂY: Nếu mở tab noti, gọi hàm refetch để TanStack Query kéo dữ liệu mới về
+    if (name === "noti" && state === true) {
+      refetchFriendRequests(); 
+    }
     setPopups((prev) => ({ ...prev, [name]: state }));
   };
 

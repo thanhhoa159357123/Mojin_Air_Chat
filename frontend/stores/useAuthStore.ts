@@ -8,9 +8,7 @@ import {
   registerSchema,
 } from "@/types/auth";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { login, logout, register } from "../services/authService";
-import Cookies from "js-cookie";
 import { extractErrorMessage } from "@/lib/errorHandler"; // <-- IMPORT THẰNG NÀY VÀO BÁC ƠI
 import { useConversationStore } from "./useConversationStore";
 
