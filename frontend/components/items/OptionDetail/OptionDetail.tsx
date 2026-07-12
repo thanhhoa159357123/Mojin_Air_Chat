@@ -25,13 +25,17 @@ const OptionDetail = ({
   const [isOpenMedia, setIsOpenMedia] = useState(false);
   const [isOpenPrivacy, setIsOpenPrivacy] = useState(false);
 
+  const handleOpenMemberModal = () => {
+    setIsOpenMember(true);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-background/40 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-border">
+    <div className="flex flex-col h-full bg-card rounded-xl overflow-hidden border border-matcha-light/20 dark:border-matcha-dark/30">
       {/* Header Profile */}
       <Header selectConversation={selectConversation} />
 
       {/* Options List */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {/* Option 1: Tùy chỉnh đoạn chat */}
         <OptionChatting
           isOpenSettingChat={isOpenSettingChat}
@@ -54,16 +58,16 @@ const OptionDetail = ({
 
         {/* Option 4: Thành viên */}
         {type === "group" && (
-          <OptionMember setIsOpenMember={() => setIsOpenMember(true)} />
+          <OptionMember setIsOpenMember={handleOpenMemberModal} />
         )}
       </div>
 
-      {/* Footer - Thông tin thêm */}
-      <div className="px-4 py-3 border-t border-border bg-muted/30">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Hệ thống bảo mật</span>
-          <span>●</span>
+      {/* Footer */}
+      <div className="px-4 py-2.5 border-t border-matcha-light/20 dark:border-matcha-dark/30 bg-matcha/5 dark:bg-matcha/10">
+        <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
           <span>Mojin Air Chat v2</span>
+          <span className="text-matcha">●</span>
+          <span>Bảo mật</span>
         </div>
       </div>
     </div>

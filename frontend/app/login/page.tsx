@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -36,13 +37,14 @@ const LoginPage = () => {
         {/* Left: Illustration */}
         <div className="hidden lg:flex w-2/5 items-center justify-center bg-primary/5 dark:bg-primary/10 p-12">
           <div className="relative w-full h-full flex flex-col items-center justify-center text-center">
-            <Image
-              src="/file.svg"
-              alt="Login Illustration"
-              width={260}
-              height={260}
-              className="object-contain animate-float drop-shadow-lg opacity-90 dark:opacity-80"
-              priority
+            <img
+              src="/assets/mojinair.svg"
+              alt="Logo Mojin Air"
+              className="object-contain animate-float opacity-95 dark:opacity-95 w-65 h-65"
+              style={{
+                filter:
+                  "drop-shadow(0 0 8px rgba(76,175,80,0.7)) drop-shadow(0 0 20px rgba(76,175,80,0.4)) drop-shadow(0 0 40px rgba(76,175,80,0.2))",
+              }}
             />
             <div className="mt-10 space-y-2">
               <h3 className="text-foreground font-semibold text-lg tracking-tight">
@@ -100,12 +102,12 @@ const LoginPage = () => {
                 <FieldLabel className="text-foreground font-medium text-sm mb-0">
                   Mật khẩu
                 </FieldLabel>
-                <a
+                {/* <a
                   href="#"
                   className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
                 >
                   Quên mật khẩu?
-                </a>
+                </a> */}
               </div>
               <Input
                 {...register("password")}

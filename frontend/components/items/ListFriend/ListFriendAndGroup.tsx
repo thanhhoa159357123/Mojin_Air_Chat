@@ -17,7 +17,10 @@ interface ListFriendProps {
   onToggleCreateGroup: () => void;
 }
 
-const ListFriendAndGroup = ({ onToggleAddFriend, onToggleCreateGroup }: ListFriendProps) => {
+const ListFriendAndGroup = ({
+  onToggleAddFriend,
+  onToggleCreateGroup,
+}: ListFriendProps) => {
   const {
     searchTerm,
     setSearchTerm,
@@ -65,7 +68,9 @@ const ListFriendAndGroup = ({ onToggleAddFriend, onToggleCreateGroup }: ListFrie
               <Users className="size-6 opacity-40" />
             </div>
             <p className="text-sm font-medium">
-              {activeTab === "friends" ? "Danh bạ trống" : "Không tìm thấy cuộc trò chuyện"}
+              {activeTab === "friends"
+                ? "Danh bạ trống"
+                : "Không tìm thấy cuộc trò chuyện"}
             </p>
           </div>
         ) : (
@@ -75,10 +80,14 @@ const ListFriendAndGroup = ({ onToggleAddFriend, onToggleCreateGroup }: ListFrie
             // Tính toán trạng thái highlight chọn dòng
             const isSelected = isTabFriends
               ? selectConversation?.type === "private" &&
-                (selectConversation?.id === dataItem.id || selectConversation?.participants?.[0]?.id === dataItem.id)
-              : selectConversation?.id === dataItem.id && selectConversation?.type === dataItem.type;
+                (selectConversation?.id === dataItem.id ||
+                  selectConversation?.participants?.[0]?.id === dataItem.id)
+              : selectConversation?.id === dataItem.id &&
+                selectConversation?.type === dataItem.type;
 
-            const itemUniqueKey = isTabFriends ? `friend-${dataItem.id}` : `${dataItem.type}-${dataItem.id}`;
+            const itemUniqueKey = isTabFriends
+              ? `friend-${dataItem.id}`
+              : `${dataItem.type}-${dataItem.id}`;
 
             // 💡 PHÂN LUỒNG RENDER: Rõ ràng, tường minh, không gồng gánh logic chéo nhau
             if (isTabFriends) {
@@ -87,7 +96,9 @@ const ListFriendAndGroup = ({ onToggleAddFriend, onToggleCreateGroup }: ListFrie
                   key={itemUniqueKey}
                   data={dataItem as IFriend}
                   isSelected={isSelected}
-                  onClick={() => handleSelectFriendFromDirectory(dataItem as IFriend)}
+                  onClick={() =>
+                    handleSelectFriendFromDirectory(dataItem as IFriend)
+                  }
                 />
               );
             }
@@ -101,7 +112,10 @@ const ListFriendAndGroup = ({ onToggleAddFriend, onToggleCreateGroup }: ListFrie
                 currentUserId={user?.id}
                 onClick={() => {
                   setSelectConversation(dataItem as IConversation);
-                  if (Number(dataItem.unread_count || 0) > 0) {
+                  const hasNewNotification =
+                    new Date(dataItem.updated_at) >
+                    new Date(dataItem.my_last_read_at || 0);
+                  if (hasNewNotification) {
                     handleMarkConversationRead(dataItem.id);
                   }
                 }}

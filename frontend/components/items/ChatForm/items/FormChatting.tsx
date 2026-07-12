@@ -93,6 +93,26 @@ const FormChatting = ({
     setMounted(true);
   }, []);
 
+  // =========================================================================
+  // 🚀 BÍ THUẬT BẮT PHÍM ESC ĐỂ ĐÓNG POPUP XEM ẢNH TO
+  // =========================================================================
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPreviewImage(null);
+      }
+    };
+
+    // Chỉ đăng ký lắng nghe khi đang mở ảnh to
+    if (previewImage) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [previewImage]);
+
   return (
     <div className="flex-1 relative min-h-0 bg-background">
       <div

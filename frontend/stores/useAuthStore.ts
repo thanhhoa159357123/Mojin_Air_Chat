@@ -8,9 +8,16 @@ import {
   registerSchema,
 } from "@/types/auth";
 import { create } from "zustand";
-import { login, logout, register } from "../services/authService";
+import {
+  IUpdateProfileInput,
+  login,
+  logout,
+  register,
+  updateProfile,
+} from "../services/authService";
 import { extractErrorMessage } from "@/lib/errorHandler"; // <-- IMPORT THẰNG NÀY VÀO BÁC ƠI
 import { useConversationStore } from "./useConversationStore";
+import { updateUserStatus } from "@/services/conversationService";
 
 const clearConversationState = () => {
   useConversationStore.getState().reset();
@@ -39,13 +46,13 @@ export const useAuthStore = create<IAuthState>()((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await register(data);
+      clearConversationState();
       set({
         user: res.user,
         accessToken: res.access_token, // 💡 Lưu token vào RAM
         isAuthenticated: true,
         loading: false,
       });
-      clearConversationState();
     } catch (error: unknown) {
       // --- SẠCH ĐẸP GỌN GÀNG ---
       const message = extractErrorMessage(error, "Đăng ký toang rồi bác ơi!");
@@ -64,6 +71,7 @@ export const useAuthStore = create<IAuthState>()((set) => ({
     }
 
     set({ loading: true, error: null });
+    clearConversationState();
     try {
       const res = await login(data);
       set({
@@ -72,7 +80,6 @@ export const useAuthStore = create<IAuthState>()((set) => ({
         isAuthenticated: true,
         loading: false,
       });
-      clearConversationState();
     } catch (error: unknown) {
       // --- SẠCH ĐẸP GỌN GÀNG ---
       const message = extractErrorMessage(error, "Sai pass hay gì rồi!");
@@ -97,10 +104,6 @@ export const useAuthStore = create<IAuthState>()((set) => ({
         error: null,
       });
       clearConversationState();
-
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
     }
   },
 
@@ -109,6 +112,7 @@ export const useAuthStore = create<IAuthState>()((set) => ({
     try {
       // 💡 F5 trang -> Mất AccessToken -> Gọi API này -> Axios Interceptor sẽ tự âm thầm đi Refresh ngầm để cứu giá!
       const response = await axiosClient.get<IUser>("/user");
+
       set({
         user: response.data,
         isAuthenticated: true,
@@ -139,5 +143,42 @@ export const useAuthStore = create<IAuthState>()((set) => ({
       }
       return {};
     });
+  },
+
+  updateProfileState: (updatedUser: IUser) => {
+    set((state) => {
+      if (state.user) {
+        return {
+          user: {
+            ...state.user,
+            ...updatedUser,
+          },
+        };
+      }
+      return {};
+    });
+  },
+
+  // 💡 HÀM THỰC THI GỌI API BỊ THIẾU
+  updateProfile: async (data: IUpdateProfileInput) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await updateProfile(data); // Gọi axios.put
+
+      // Thành công thì bốc cục res.user ném vào hàm cập nhật RAM
+      set((state) => {
+        if (state.user) {
+          return {
+            user: { ...state.user, ...res.user },
+            loading: false,
+          };
+        }
+        return { loading: false };
+      });
+    } catch (error: unknown) {
+      const message = extractErrorMessage(error, "Lưu thông tin toang rồi!");
+      set({ error: message, loading: false });
+      throw new Error(message);
+    }
   },
 }));

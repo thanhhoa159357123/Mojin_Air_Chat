@@ -23,7 +23,6 @@ export const useChats = (selectConversation: IConversation | null) => {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
 
-  // Lấy ID dùng để gọi API (Backend của bác phân biệt friend_id và conversation_id)
   const isGroup = selectConversation?.type === "group";
   const fetchId = selectConversation?.id;
 
@@ -40,22 +39,20 @@ export const useChats = (selectConversation: IConversation | null) => {
       if (!fetchId || !selectConversation?.type)
         return { data: [], hasMore: false };
       const res = await getMessage(fetchId, selectConversation.type, pageParam);
-      return res; // Trả về { data: IMessage[], hasMore: boolean }
+      return res;
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
       return lastPage?.hasMore ? allPages.length + 1 : undefined;
     },
-    enabled: !!fetchId, // Chỉ chạy khi đã chọn phòng
+    enabled: !!fetchId,
   });
 
-  // Duỗi mảng phân trang thành 1 mảng phẳng duy nhất cho UI dễ map
-  // 💡 BÍ THUẬT DUỖI PHẲNG MẢNG THEO TRỤC THỜI GIAN TĂNG DẦN
   const messages = chatData?.pages
     ? [...chatData.pages].reverse().flatMap((page) => page?.data || [])
     : [];
 
-  // 2. MUTATION GỬI TIN NHẮN (OPTIMISTIC UI 0ms)
+  // 2. MUTATION GỬI TIN NHẮN (TRỊ TRIỆT ĐỂ LỖI TỰ KỶ CHẤM XANH)
   const sendMessageMutation = useMutation({
     mutationFn: ({
       content,
@@ -96,53 +93,36 @@ export const useChats = (selectConversation: IConversation | null) => {
         },
       };
 
-      // 1. Đẩy tin nhắn ảo vào Cache Khung Chat
-      // Trong useChats.ts -> sendMessageMutation -> onMutate
-      queryClient.setQueryData(
-        ["messages", selectConversation?.id],
-        (old: any) => {
-          if (!old || !old.pages) return old;
-          const newPages = [...old.pages];
+      // Đẩy tin nhắn ảo vào khung chat
+      queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
+        if (!old || !old.pages) return old;
+        const newPages = [...old.pages];
+        newPages[0] = {
+          ...newPages[0],
+          data: [...newPages[0].data, fakeMessage],
+        };
+        return { ...old, pages: newPages };
+      });
 
-          // 🛑 LỖI CŨ CỦA BÁC: Bác đang dùng lastPageIndex khiến tin nhắn bay lên Top
-          // const lastPageIndex = newPages.length - 1;
+      // 🌟 ÉP CHẶN ĐẦU TẠI SIDEBAR: Đổi unread_count thành my_last_read_at
+      queryClient.setQueryData(["conversations"], (oldConversations: IConversation[] | undefined) => {
+        const old = oldConversations || [];
+        const rest = old.filter((c) => c.id !== selectConversation!.id);
+        const target = old.find((c) => c.id === selectConversation!.id) || selectConversation;
 
-          // ✅ CÁCH SỬA: Luôn luôn nhét tin nhắn mới vào CUỐI CỦA TRANG 0 (Trang mới nhất)
-          newPages[0] = {
-            ...newPages[0],
-            data: [...newPages[0].data, fakeMessage],
-          };
-          return { ...old, pages: newPages };
-        },
-      );
+        const updatedConv: IConversation = {
+          ...target!,
+          last_message: fakeMessage,
+          updated_at: fakeMessage.created_at,
+          
+          // Mình là người nhắn, ép ngày đọc bằng đúng ngày tin nhắn ảo vừa sinh ra -> Cấm hiện chấm xanh!
+          my_last_read_at: fakeMessage.created_at, 
+        };
 
-      // 💡 ĐÃ FIX: 2. Cập nhật Sidebar lên top bằng TanStack Query (Chọc vào mảng "conversations")
-      queryClient.setQueryData<IConversation[]>(
-        ["conversations"],
-        (oldConversations = []) => {
-          // Lọc bỏ phòng chat hiện tại ra khỏi mảng cũ
-          const rest = oldConversations.filter(
-            (c) => c.id !== selectConversation!.id,
-          );
+        return [updatedConv, ...rest];
+      });
 
-          // Tìm phòng chat hiện tại (hoặc lấy cục selectConversation đang mở)
-          const target =
-            oldConversations.find((c) => c.id === selectConversation!.id) ||
-            selectConversation;
-
-          // Cập nhật tin nhắn cuối và đẩy nó lên đầu mảng
-          const updatedConv = {
-            ...target!,
-            last_message: fakeMessage,
-            updated_at: fakeMessage.created_at,
-            unread_count: 0,
-          };
-
-          return [updatedConv, ...rest];
-        },
-      );
-
-      // 3. Cập nhật luôn last_message vào phòng đang chọn ở Zustand Store (để Header / UI phụ mượt mà)
+      // Cập nhật Zustand Store đồng bộ dữ liệu ảo
       useConversationStore.setState((state) => ({
         selectConversation:
           state.selectConversation?.id === selectConversation!.id
@@ -150,53 +130,79 @@ export const useChats = (selectConversation: IConversation | null) => {
                 ...state.selectConversation,
                 last_message: fakeMessage,
                 updated_at: fakeMessage.created_at,
+                my_last_read_at: fakeMessage.created_at,
               }
             : state.selectConversation,
       }));
 
       return { fakeId };
     },
-    // ... (Khúc onSuccess và onError ở dưới giữ nguyên như cũ)
     onSuccess: (realMsg, variables, context) => {
-      // Thay thế tin nhắn ảo bằng tin nhắn thật từ Server
-      queryClient.setQueryData(
-        ["messages", selectConversation?.id],
-        (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              data: page.data.map((m: any) =>
-                m.id === context.fakeId ? realMsg.data || realMsg : m,
-              ),
-            })),
-          };
-        },
-      );
+      const serverData = realMsg.data || realMsg;
+
+      // 1. Ghi đè tin nhắn thật từ Server vào khung chat
+      queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            data: page.data.map((m: any) =>
+              m.id === context.fakeId ? serverData : m,
+            ),
+          })),
+        };
+      });
+
+      // 🌟 2. VÁ CHUẨN CHỈ SIDEBAR: Khóa cứng mốc thời gian thực từ Database
+      queryClient.setQueryData(["conversations"], (oldConversations: IConversation[] | undefined) => {
+        const old = oldConversations || [];
+        const rest = old.filter((c) => c.id !== selectConversation!.id);
+        const target = old.find((c) => c.id === selectConversation!.id) || selectConversation;
+
+        const updatedConv: IConversation = {
+          ...target!,
+          last_message: serverData,
+          updated_at: serverData.created_at, // Mốc thực tế Server cắn lệnh touch() nhảy lên
+          
+          // Đồng bộ khít kịt mốc đọc của mình bằng mốc Server, triệt tiêu 100% nguy cơ lệch mili-giây gây lóe chấm xanh
+          my_last_read_at: serverData.created_at, 
+        };
+
+        return [updatedConv, ...rest];
+      });
+
+      // 3. Cập nhật Zustand Store đồng bộ dữ liệu chuẩn từ Server
+      useConversationStore.setState((state) => ({
+        selectConversation:
+          state.selectConversation?.id === selectConversation!.id
+            ? {
+                ...state.selectConversation,
+                last_message: serverData,
+                updated_at: serverData.created_at,
+                my_last_read_at: serverData.created_at,
+              }
+            : state.selectConversation,
+      }));
     },
     onError: (err, variables, context) => {
       toast.error("Gửi tin nhắn thất bại.");
-      // Đánh dấu lỗi trên tin nhắn ảo
-      queryClient.setQueryData(
-        ["messages", selectConversation?.id],
-        (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              data: page.data.map((m: any) =>
-                m.id === context?.fakeId ? { ...m, isError: true } : m,
-              ),
-            })),
-          };
-        },
-      );
+      queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            data: page.data.map((m: any) =>
+              m.id === context?.fakeId ? { ...m, isError: true } : m,
+            ),
+          })),
+        };
+      });
     },
   });
 
-  // 3. MUTATION XÓA TIN NHẮN (0ms)
+  // 3. MUTATION XÓA TIN NHẮN (FIX TYPE TS)
   const deleteMessageMutation = useMutation({
     mutationFn: (messageId: number) =>
       deleteMessage(selectConversation!.id, messageId),
@@ -204,32 +210,28 @@ export const useChats = (selectConversation: IConversation | null) => {
       await queryClient.cancelQueries({
         queryKey: ["messages", selectConversation?.id],
       });
-      // Lọc tin nhắn cho bay màu ngay lập tức
-      queryClient.setQueryData(
-        ["messages", selectConversation?.id],
-        (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              data: page.data.filter(
-                (m: any) => Number(m.id) !== Number(messageId),
-              ),
-            })),
-          };
-        },
-      );
+      queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            data: page.data.filter(
+              (m: any) => Number(m.id) !== Number(messageId),
+            ),
+          })),
+        };
+      });
     },
     onError: () => {
       toast.error("Xóa tin nhắn thất bại.");
       queryClient.invalidateQueries({
         queryKey: ["messages", selectConversation?.id],
-      }); // Lỗi thì gọi API lấy lại
+      });
     },
   });
 
-  // 4. MUTATION SỬA TIN NHẮN (0ms)
+  // 4. MUTATION SỬA TIN NHẮN (FIX TYPE TS)
   const editMessageMutation = useMutation({
     mutationFn: ({
       messageId,
@@ -242,23 +244,20 @@ export const useChats = (selectConversation: IConversation | null) => {
       await queryClient.cancelQueries({
         queryKey: ["messages", selectConversation?.id],
       });
-      queryClient.setQueryData(
-        ["messages", selectConversation?.id],
-        (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              data: page.data.map((m: any) =>
-                Number(m.id) === Number(messageId)
-                  ? { ...m, content, edit_count: (m.edit_count || 0) + 1 }
-                  : m,
-              ),
-            })),
-          };
-        },
-      );
+      queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            data: page.data.map((m: any) =>
+              Number(m.id) === Number(messageId)
+                ? { ...m, content, edit_count: (m.edit_count || 0) + 1 }
+                : m,
+            ),
+          })),
+        };
+      });
     },
     onError: () => {
       toast.error("Chỉnh sửa tin nhắn thất bại.");

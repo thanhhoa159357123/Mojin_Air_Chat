@@ -1,6 +1,14 @@
 import axiosClient from "@/lib/axios";
 import { IAuthLogin, IAuthRegister, IAuthResponse } from "@/types/auth";
-import Cookies from "js-cookie"; // Import hàng về bác ơi
+
+export interface IUpdateProfileInput {
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  email?: string;
+  phone?: string;
+  bio?: string;
+}
 
 /**
  * Service xử lý đăng ký thành viên
@@ -43,3 +51,10 @@ export const logout = async (): Promise<void> => {
     throw error;
   }
 };
+
+export const updateProfile = async (data: IUpdateProfileInput) => {
+  // 🚀 Chạy PUT thuần JSON, không sợ bị nuốt dữ liệu
+  const response = await axiosClient.put("/user/update-information", data);
+  return response.data;
+};
+

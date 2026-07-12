@@ -24,7 +24,7 @@ class FriendRequestSent implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new Channel('user-sidebar.' . $this->receiverId);
+        return new Channel('user-friend-actions.' . $this->receiverId);
     }
 
     public function broadcastAs()

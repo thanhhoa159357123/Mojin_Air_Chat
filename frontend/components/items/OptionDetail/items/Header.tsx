@@ -12,18 +12,15 @@ const Header = ({ selectConversation }: HeaderProps) => {
   const user = useAuthStore((state) => state.user);
   const { isGroup, partner, displayName, displayUsername, displayAvatar } =
     getConversationDetails(selectConversation, user?.id);
-  return (
-    <div className="relative px-5 py-6 bg-secondary/30">
-      {/* Decorative blob nhỏ */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl" />
-      <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
 
-      <div className="relative flex flex-col items-center justify-center">
+  return (
+    <div className="px-5 py-6 border-b border-matcha-light/20 dark:border-matcha-dark/30">
+      <div className="flex flex-col items-center">
+        {/* Avatar */}
         <div className="relative">
-          {/* Giao diện Avatar động cho Sidebar bên phải */}
-          <div className="size-20 rounded-full bg-primary/10 border-2 border-primary/20 shadow-lg ring-4 ring-background flex items-center justify-center overflow-hidden">
+          <div className="size-20 rounded-full bg-matcha/10 dark:bg-matcha/20 flex items-center justify-center overflow-hidden">
             {isGroup ? (
-              <Users className="size-10 text-primary" />
+              <Users className="size-10 text-forest dark:text-matcha-light" />
             ) : displayAvatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -32,7 +29,7 @@ const Header = ({ selectConversation }: HeaderProps) => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-primary font-bold text-xl uppercase">
+              <span className="text-forest dark:text-matcha-light font-bold text-xl uppercase">
                 {partner?.first_name?.substring(0, 2) || (
                   <UserIcon className="size-8" />
                 )}
@@ -40,30 +37,30 @@ const Header = ({ selectConversation }: HeaderProps) => {
             )}
           </div>
           {selectConversation && !isGroup && partner?.status === "online" && (
-            <span className="absolute bottom-1 right-1 size-4 bg-emerald-500 rounded-full ring-2 ring-offset-0 ring-background shadow-sm animate-in fade-in zoom-in duration-300" />
+            <span className="absolute bottom-1 right-1 size-4 bg-emerald-500 rounded-full ring-2 ring-card" />
           )}
         </div>
+
+        {/* Info */}
         <div className="text-center mt-3">
-          <h2 className="text-xl font-bold text-foreground max-w-60 truncate">
+          <h2 className="text-lg font-semibold text-foreground max-w-60 truncate">
             {displayName}
           </h2>
-          <h3 className="text-sm text-muted-foreground mt-0.5 truncate max-w-60">
+          <p className="text-sm text-muted-foreground mt-0.5 truncate max-w-60">
             {isGroup ? "" : "@"}
             {displayUsername}
-          </h3>
+          </p>
         </div>
-        <div className="mt-5 flex items-center gap-6">
-          <button className="group flex flex-col items-center gap-1 transition-all duration-200 hover:scale-105">
-            <div className="p-2 rounded-full bg-secondary group-hover:bg-primary/10 transition-colors">
-              <Bell className="size-4 text-muted-foreground group-hover:text-primary" />
-            </div>
-            <span className="text-xs text-muted-foreground">Thông báo</span>
+
+        {/* Actions */}
+        <div className="mt-4 flex items-center gap-4">
+          <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-matcha/10 dark:hover:bg-matcha/20 text-muted-foreground hover:text-forest dark:hover:text-matcha-light">
+            <Bell className="size-4" />
+            <span className="text-[11px]">Thông báo</span>
           </button>
-          <button className="group flex flex-col items-center gap-1 transition-all duration-200 hover:scale-105">
-            <div className="p-2 rounded-full bg-secondary group-hover:bg-primary/10 transition-colors">
-              <Search className="size-4 text-muted-foreground group-hover:text-primary" />
-            </div>
-            <span className="text-xs text-muted-foreground">Tìm kiếm</span>
+          <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-matcha/10 dark:hover:bg-matcha/20 text-muted-foreground hover:text-forest dark:hover:text-matcha-light">
+            <Search className="size-4" />
+            <span className="text-[11px]">Tìm kiếm</span>
           </button>
         </div>
       </div>

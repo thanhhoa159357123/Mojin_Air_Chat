@@ -10,6 +10,7 @@ export const usePopUpManager = () => {
     noti: false,
     setting: false,
     createGroup: false,
+    delorblock: false,
   });
 
   // Hàm "tổng đài" xử lý mọi loại popup

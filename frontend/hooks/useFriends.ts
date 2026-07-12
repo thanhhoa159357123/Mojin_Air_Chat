@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -14,6 +15,10 @@ import {
   acceptFriend,
   searchFriends,
   addAvatar,
+  unFriend,
+  blockFriend,
+  unblockFriend,
+  getBlockedFriends,
 } from "@/services/friendService";
 import { IFriend } from "@/types/friend";
 import { toast } from "sonner";
@@ -21,7 +26,9 @@ import { toast } from "sonner";
 export const useFriends = () => {
   const queryClient = useQueryClient();
 
+  // ==========================================
   // 1. LẤY DANH SÁCH BẠN BÈ
+  // ==========================================
   const {
     data: friends = [],
     isLoading,
@@ -35,19 +42,9 @@ export const useFriends = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 2. GỬI LỜI MỜI KẾT BẠN (addFriend cũ trong store)
-  const addFriendMutation = useMutation({
-    mutationFn: (friendId: number) => addFriend(friendId),
-    onSuccess: () => {
-      toast.success("Đã gửi lời mời kết bạn!");
-      // F5 lại cache lời mời hoặc danh sách nếu cần thiết
-      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
-    },
-    onError: (err: unknown) =>
-      toast.error((err as Error).message || "Lỗi gửi lời mời kết bạn!"),
-  });
-
-  // 3. LẤY DANH SÁCH LỜI MỜI KẾT BẠN (fetchFriendRequests)
+  // ==========================================
+  // 2. LẤY DANH SÁCH LỜI MỜI KẾT BẠN (fetchFriendRequests)
+  // ==========================================
   const {
     data: friendRequests = [],
     isLoading: isFriendRequestsLoading,
@@ -61,7 +58,23 @@ export const useFriends = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 4. CHẤP NHẬN LỜI MỜI KẾT BẠN (Bản chuẩn)
+  // ==========================================
+  // 3. GỬI LỜI MỜI KẾT BẠN
+  // ==========================================
+  const addFriendMutation = useMutation({
+    mutationFn: (friendId: number) => addFriend(friendId),
+    onSuccess: () => {
+      toast.success("Đã gửi lời mời kết bạn!");
+      // F5 lại cache lời mời hoặc danh sách nếu cần thiết
+      queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
+    },
+    onError: (err: unknown) =>
+      toast.error((err as Error).message || "Lỗi gửi lời mời kết bạn!"),
+  });
+
+  // ==========================================
+  // 4. CHẤP NHẬN LỜI MỜI KẾT BẠN
+  // ==========================================
   const acceptFriendMutation = useMutation({
     // Sửa lỗi: Phải gọi acceptFriend(friendId) của service chứ không phải addFriend!
     mutationFn: (friendId: number) => acceptFriend(friendId),
@@ -82,7 +95,9 @@ export const useFriends = () => {
       toast.error((err as Error).message || "Lỗi chấp nhận lời mời!"),
   });
 
+  // ==========================================
   // 5. TỪ CHỐI LỜI MỜI KẾT BẠN
+  // ==========================================
   const rejectFriendMutation = useMutation({
     mutationFn: (friendId: number) => rejectFriend(friendId),
     onSuccess: (response, friendId) => {
@@ -97,8 +112,9 @@ export const useFriends = () => {
       toast.error((err as Error).message || "Từ chối lời mời thất bại!"),
   });
 
+  // ==========================================
   // 6. TÌM KIẾM BẠN BÈ + INFINITE SCROLL (Gom từ searchFriends)
-  // Bác truyền vào cái `searchQuery: string` để kích hoạt nhé
+  // ==========================================
   const useSearchFriendsInfinite = (searchQuery: string) => {
     return useInfiniteQuery({
       queryKey: ["friendsSearch", searchQuery],
@@ -115,7 +131,9 @@ export const useFriends = () => {
     });
   };
 
+  // ==========================================
   // 7. CẬP NHẬT AVATAR (addAvatar)
+  // ==========================================
   const addAvatarMutation = useMutation({
     mutationFn: (avtUrl: string) => addAvatar(avtUrl),
     onSuccess: () => {
@@ -125,6 +143,80 @@ export const useFriends = () => {
     },
     onError: (err: unknown) =>
       toast.error((err as Error).message || "Lỗi cập nhật avatar!"),
+  });
+
+  // ==========================================
+  // 8. HỦY KẾT BẠN (unFriend)
+  // ==========================================
+  const unFriendMutation = useMutation({
+    mutationFn: (friendId: number) => unFriend(friendId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      toast.success(
+        "Một mối quan hệ vừa kết thúc...!!! Có duyên thì gặp lại, không duyên thì thôi. 😢",
+      );
+    },
+    // 💡 SỬA CHỖ NÀY: Bắt và bung cái lỗi thật sự ra!
+    onError: (err: any) => {
+      console.error("🔥 Bắt quả tang lỗi API:", err.response?.data || err);
+      // Lấy câu chửi từ Backend (nếu có), không thì báo lỗi chung
+      const backendMessage =
+        err.response?.data?.message || "Lỗi mạng hoặc server!";
+      toast.error(`Xóa bạn thất bại: ${backendMessage}`);
+    },
+  });
+
+  // ==========================================
+  // 9. BLOCK BẠN BÈ
+  // ==========================================
+  const blockFriendMutation = useMutation({
+    mutationFn: (friendId: number) => blockFriend(friendId),
+    onSuccess: () => {
+      toast.success("Không bao giờ làm bạn nữa");
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      queryClient.invalidateQueries({ queryKey: ["blockedFriends"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (err: any) => {
+      console.error("🔥 Bắt quả tang lỗi API:", err.response?.data || err);
+      const backendMessage =
+        err.response?.data?.message || "Lỗi mạng hoặc server!";
+      toast.error(`Block bạn thất bại: ${backendMessage}`);
+    },
+  });
+
+  // ==========================================
+  // 10. UNBLOCK BẠN BÈ
+  // ==========================================
+  const unblockFriendMutation = useMutation({
+    mutationFn: (friendId: number) => unblockFriend(friendId),
+    onSuccess: () => {
+      toast.success("Đã bỏ chặn bạn!");
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      queryClient.invalidateQueries({ queryKey: ["blockedFriends"] });
+      // queryClient.inva
+    },
+    onError: (err: any) => {
+      console.error("🔥 Bắt quả tang lỗi API:", err.response?.data || err);
+      const backendMessage =
+        err.response?.data?.message || "Lỗi mạng hoặc server!";
+      toast.error(`Bỏ chặn bạn thất bại: ${backendMessage}`);
+    },
+  });
+
+  // ==========================================
+  // 11. LẤY DANH SÁCH NGƯỜI DÙNG BỊ CHẶN (BLOCKED FRIENDS)
+  // ==========================================
+  const {
+    data: blockedFriends = [],
+    isLoading: isBlockedFriendsLoading,
+    error: blockedFriendsError,
+  } = useQuery<IFriend[]>({
+    queryKey: ["blockedFriends"],
+    queryFn: async () => {
+      const response = await getBlockedFriends();
+      return response.data || response;
+    },
   });
 
   return {
@@ -146,6 +238,19 @@ export const useFriends = () => {
       queryClient.invalidateQueries({ queryKey: ["friendRequests"] }),
     acceptFriend: (friendId: number) => acceptFriendMutation.mutate(friendId),
     rejectFriend: (friendId: number) => rejectFriendMutation.mutate(friendId),
+
+    handleUnFriend: (friendId: number) => unFriendMutation.mutate(friendId),
+    handleBlockFriend: (friendId: number) =>
+      blockFriendMutation.mutate(friendId),
+    handleUnblockFriend: (friendId: number) =>
+      unblockFriendMutation.mutate(friendId),
+
+    // Blocked Friends
+    blockedFriends,
+    isBlockedFriendsLoading,
+    blockedFriendsError: blockedFriendsError
+      ? (blockedFriendsError as Error).message
+      : null,
 
     // Avatar Action
     handleUpdateAvatar: (avtUrl: string) => addAvatarMutation.mutate(avtUrl),

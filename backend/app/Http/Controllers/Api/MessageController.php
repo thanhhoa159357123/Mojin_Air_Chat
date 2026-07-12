@@ -14,9 +14,6 @@ use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
-    /**
-     * HÀM BẢO BỐI 1: Tìm hoặc tạo phòng chat 1-1
-     */
     private function getOrCreatePrivateConversation($myId, $friendId)
     {
         $conversation = Conversation::where('type', 'private')
@@ -33,7 +30,6 @@ class MessageController extends Controller
             $conversation->participants()->attach([$myId, $friendId]);
         }
 
-
         return $conversation;
     }
 
@@ -43,19 +39,14 @@ class MessageController extends Controller
             ->where('status', 1)
             ->where(function ($q) use ($myId, $friendId) {
                 $q->where(function ($q) use ($myId, $friendId) {
-                    $q->where('user_id', $myId)
-                        ->where('friend_id', $friendId);
+                    $q->where('user_id', $myId)->where('friend_id', $friendId);
                 })->orWhere(function ($q) use ($myId, $friendId) {
-                    $q->where('user_id', $friendId)
-                        ->where('friend_id', $myId);
+                    $q->where('user_id', $friendId)->where('friend_id', $myId);
                 });
             })
             ->exists();
     }
 
-    /**
-     * HÀM BẢO BỐI 2: Lấy tin nhắn (Xử lý lọc tin đã xóa và lịch sử đã dọn)
-     */
     private function fetchMessages($conversationId, $myId)
     {
         $clearedAt = DB::table('participants')
@@ -75,28 +66,21 @@ class MessageController extends Controller
                 'sender:id,first_name,last_name,avatar',
                 'parent.sender:id,first_name,last_name'
             ])
-            // 💡 SỬA Ở ĐÂY: Phải lấy DESC để ưu tiên lấy 20 tin mới nhất!
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        // 💡 BÍ THUẬT: Vì lấy DESC nên tin nhắn đang bị ngược (tin mới nhất nằm trên cùng).
-        // Phải lật ngược mảng lại để Frontend render xuôi chiều từ trên xuống dưới.
         $paginated->setCollection($paginated->getCollection()->reverse()->values());
 
         return $paginated;
     }
 
-    /**
-     * HÀM BẢO BỐI 3: Cập nhật last_message_id tuyệt đối cho phòng chat
-     */
     private function updateLastMessage(Conversation $conversation)
     {
-        // Cập nhật lại last_message_id thành ID của tin nhắn mới nhất chưa bị thu hồi
-        // (Bỏ qua việc lọc deleted_by_ids ở đây vì last_message_id là dùng chung cho CẢ PHÒNG)
         $newLastMessage = $conversation->messages()
             ->orderBy('created_at', 'desc')
             ->first();
 
+        // Lệnh này vừa cập nhật ID tin cuối, vừa tự động gõ đầu trường `updated_at` của conversation tăng lên (Cực quan trọng để làm Dấu Chấm Xanh)
         $conversation->update(['last_message_id' => $newLastMessage ? $newLastMessage->id : null]);
     }
 
@@ -129,13 +113,11 @@ class MessageController extends Controller
                     ]);
                 }
             } else {
-                // Trường hợp 1: $id truyền vào là ID của một Phòng Chat đã tồn tại
                 $conversation = Conversation::where('id', $id)
                     ->where('type', 'private')
                     ->whereHas('participants', fn($q) => $q->where('users.id', $myId))
                     ->first();
 
-                // Trường hợp 2: Nếu không tìm thấy phòng bằng $id đó, chứng tỏ $id này là Friend ID (User ID)
                 if (!$conversation) {
                     if (!User::where('id', $id)->exists()) {
                         return response()->json(['message' => 'Người dùng này không tồn tại hoặc đã bị xóa!'], 404);
@@ -145,14 +127,11 @@ class MessageController extends Controller
                         return response()->json(['message' => 'Bạn chưa kết bạn với người này.'], 403);
                     }
 
-                    // 💡 MÈO ĐEN LUỒNG NÀY: Thử tìm xem hai đứa đã có phòng ẩn dưới DB chưa
                     $conversation = Conversation::where('type', 'private')
                         ->whereHas('participants', fn($q) => $q->where('users.id', $myId))
                         ->whereHas('participants', fn($q) => $q->where('users.id', $id))
                         ->first();
 
-                    // 🌟 CHỐT HẠ: Nếu thực sự chưa từng chat một câu nào (Không có phòng)
-                    // Trả về mảng rỗng ngay lập tức, TUYỆT ĐỐI không tạo phòng rác trong DB!
                     if (!$conversation) {
                         return response()->json([
                             'status' => 'success',
@@ -163,18 +142,17 @@ class MessageController extends Controller
                 }
             }
         } else {
-            // Group Chat giữ nguyên
             $conversation = Conversation::where('id', $id)
                 ->whereHas('participants', fn($q) => $q->where('users.id', $myId))
                 ->firstOrFail();
         }
 
+        // Đánh dấu đã đọc luồng trực tiếp khi vừa mở phòng chat
         DB::table('participants')
             ->where('conversation_id', $conversation->id)
             ->where('user_id', $myId)
             ->update(['last_read_at' => now()]);
 
-        // Nếu có phòng (phòng cũ hoặc vừa tìm được theo Friend ID), fetch tin nhắn như thường
         $paginatedMessages = $this->fetchMessages($conversation->id, $myId);
 
         return response()->json([
@@ -184,9 +162,6 @@ class MessageController extends Controller
         ]);
     }
 
-    /**
-     * API: Gửi tin nhắn (Cũng thông minh nốt)
-     */
     public function sendMessage(Request $request)
     {
         $validated = $request->validate([
@@ -199,32 +174,26 @@ class MessageController extends Controller
 
         $myId = $request->user()->id;
 
-        // 1. Xác định Conversation bằng logic "thông minh"
         if ($request->filled('friend_id')) {
             $targetId = $request->friend_id;
 
-            // 💡 MÀNG LỌC 1: Đề phòng Frontend "ngáo", ném nhầm ID phòng chat vào trường friend_id
             $existingConvById = Conversation::where('id', $targetId)
                 ->where('type', 'private')
                 ->whereHas('participants', fn($q) => $q->where('users.id', $myId))
                 ->first();
 
             if ($existingConvById) {
-                // Nếu đúng là ID phòng chat thì bế ra xài luôn
                 $conversation = $existingConvById;
             } else {
-                // 💡 MÀNG LỌC 2: Nó thực sự là Friend ID. Tìm xem có phòng chat ẩn giữa 2 người chưa
                 $conversation = Conversation::where('type', 'private')
                     ->whereHas('participants', fn($q) => $q->where('users.id', $myId))
                     ->whereHas('participants', fn($q) => $q->where('users.id', $targetId))
                     ->first();
 
-                // 💡 MÀNG LỌC 3: Vẫn chưa có phòng? Tạo mới! (Lúc này mới check kết bạn)
                 if (!$conversation) {
                     if (!$this->isAcceptedFriend($myId, $targetId)) {
                         return response()->json(['message' => 'Bạn chưa kết bạn với người này.'], 403);
                     }
-                    // Khách bấm gửi tin nhắn đầu tiên -> Tạo phòng chính chủ!
                     $conversation = $this->getOrCreatePrivateConversation($myId, $targetId);
                 }
             }
@@ -236,7 +205,21 @@ class MessageController extends Controller
             return response()->json(['message' => 'Thiếu thông tin người nhận hoặc nhóm.'], 400);
         }
 
-        // 2. Lưu tin nhắn
+        if ($conversation->type === 'private') {
+            $partnerId = DB::table('participants')
+                ->where('conversation_id', $conversation->id)
+                ->where('user_id', '!=', $myId)
+                ->value('user_id');
+
+            if ($partnerId) {
+                if (!$this->isAcceptedFriend($myId, $partnerId)) {
+                    return response()->json([
+                        'message' => 'Bạn không thể gửi tin nhắn do hai người hiện không còn là bạn bè.'
+                    ], 403);
+                }
+            }
+        }
+
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'user_id' => $myId,
@@ -245,7 +228,13 @@ class MessageController extends Controller
             'parent_id' => $validated['parent_id'] ?? null
         ]);
 
-        // 3. Cập nhật meta cho phòng chat
+        // 🌟 BÍ THUẬT 1: Cập nhật luôn ngày đọc của người nhắn bằng thời gian hiện tại
+        // Đảm bảo last_read_at đồng bộ tuyệt đối với updated_at sắp tăng ở hàm updateLastMessage bên dưới
+        DB::table('participants')
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', $myId)
+            ->update(['last_read_at' => now()]);
+
         $this->updateLastMessage($conversation);
 
         $fullMessageData = $message->load([
@@ -254,7 +243,6 @@ class MessageController extends Controller
             'conversation.participants:id'
         ]);
 
-        // 4. Phát sóng Real-time
         broadcast(new MessageSent($fullMessageData))->toOthers();
 
         return response()->json([
@@ -263,14 +251,10 @@ class MessageController extends Controller
         ]);
     }
 
-    /**
-     * API: Xóa tin nhắn (Xóa sạch không dấu vết hoặc Ẩn phía tôi)
-     */
     public function deleteMessage(Request $request, $conversationId, $messageId)
     {
         $myId = $request->user()->id;
 
-        // 1. Kiểm tra quyền truy cập phòng chat
         $isParticipant = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $myId)
@@ -280,35 +264,32 @@ class MessageController extends Controller
             return response()->json(['message' => 'Bạn không có quyền truy cập phòng chat này.'], 403);
         }
 
-        // 2. Tìm tin nhắn hợp lệ
         $message = Message::where('id', $messageId)
             ->where('conversation_id', $conversationId)
             ->firstOrFail();
 
         $conversation = $message->conversation;
 
-        // 3. XỬ LÝ LOGIC SÁT THỦ (Đúng ý bác 100%)
         if ($message->user_id === $myId) {
-            // Trường hợp 1: Tin nhắn của CHÍNH TÔI -> Xóa sổ vật lý, bay màu khỏi Database luôn!
             $message->delete();
             $type = 'delete_for_all';
         } else {
-            // Trường hợp 2: Tin nhắn của ĐỐI PHƯƠNG -> Chỉ ẩn khỏi máy mình
             $ids = $message->deleted_by_ids ?? [];
             if (!in_array($myId, $ids)) {
                 $ids[] = $myId;
-                // Nhét ID của mình vào mảng json, đối phương không hề bị ảnh hưởng
                 $message->update(['deleted_by_ids' => array_values(array_unique($ids))]);
             }
             $type = 'delete_for_me';
         }
 
-        // 4. Cập nhật lại last_message_id cho phòng chat (Cực quan trọng để Sidebar không bị kẹt tin cũ)
+        // 🌟 BÍ THUẬT 2: Đồng bộ mốc đọc cuối của người xóa khi phòng chat bị thay đổi update_at
+        DB::table('participants')
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $myId)
+            ->update(['last_read_at' => now()]);
+
         $this->updateLastMessage($conversation);
 
-        // 5. BẮN TÍN HIỆU REAL-TIME
-        // Chỉ khi nào Xóa Vĩnh Viễn (delete_for_all) thì mới bắn Pusher sang máy đối phương để máy nó gỡ tin nhắn đó ra khỏi màn hình.
-        // Còn nếu xóa phía mình (delete_for_me) thì âm thầm làm, đéo báo cho đối phương biết.
         if ($type === 'delete_for_all') {
             broadcast(new MessageDeleted($messageId, $conversationId, $type))->toOthers();
         }
@@ -320,38 +301,32 @@ class MessageController extends Controller
         ]);
     }
 
-    /**
-     * API: Dọn sạch lịch sử trò chuyện (Siêu tốc độ - Không foreach)
-     */
     public function deleteAllMessages(Request $request, $conversationId)
     {
         $myId = $request->user()->id;
 
-        // TỐI ƯU TUYỆT ĐỐI: Ghi nhận mốc thời gian xóa lịch sử vào thẳng bảng pivot của đúng user này
+        // 🌟 BÍ THUẬT 3: Khi dọn sạch lịch sử, vừa cắm mốc cleared_at vừa update luôn last_read_at cho đồng bộ khít kịt
         $updated = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $myId)
-            ->update(['cleared_at' => now()]);
+            ->update([
+                'cleared_at' => now(),
+                'last_read_at' => now()
+            ]);
 
         if (!$updated) {
             return response()->json(['message' => 'Phòng chat không tồn tại hoặc bạn không thuộc phòng này.'], 404);
         }
 
-        // 🚀 BẮN TRỰC TIẾP LỆNH SẠCH SẼ LÊN PUSHER
-        // Bác dùng lại chính cái Event MessageDeleted mà bác đã có sẵn, truyền type là 'clear_history' hoặc 'unsend' tùy bác cấu hình ở useChatPusher
         broadcast(new MessageDeleted(0, $conversationId, 'clear_history'))->toOthers();
 
         return response()->json(['status' => 'success', 'message' => 'Đã dọn dẹp lịch sử trò chuyện thành công!']);
     }
 
-    /**
-     * API: Chỉnh sửa tin nhắn (Giải pháp 2: Tăng edit_count thần thánh)
-     */
     public function editMessage(Request $request, $conversationId, $messageId)
     {
         $myId = $request->user()->id;
 
-        // 1. Bảo mật tầng 1: Kiểm tra xem khứa này có thuộc phòng chat này không
         $isParticipant = DB::table('participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $myId)
@@ -361,38 +336,34 @@ class MessageController extends Controller
             return response()->json(['message' => 'Bạn không có quyền truy cập phòng chat này.'], 403);
         }
 
-        // 2. Tìm con tin nhắn cụ thể trong phòng
         $message = Message::where('id', $messageId)
             ->where('conversation_id', $conversationId)
             ->firstOrFail();
 
-        // 3. CHÍ MẠNG: Đề phòng user phá hoại, chỉ cho phép CHÍNH CHỦ sửa tin của mình!
         if ($message->user_id !== $myId) {
             return response()->json(['message' => 'Bạn không có quyền chỉnh sửa tin nhắn của người khác.'], 403);
         }
 
-        // 4. Validate nội dung sửa đổi đầu vào
-        $validated = $request->validate([
-            'content' => 'required|string',
-        ]);
+        $validated = $request->validate(['content' => 'required|string']);
 
-        // 5. Triển khai thuật toán tăng số lần vấp ngã của User
         $message->content = $validated['content'];
-        $message->edit_count += 1; // Tự động cộng dồn lên: 1, 2, 3, 4, 5...
+        $message->edit_count += 1;
         $message->save();
 
-        // 6. Đồng bộ lại meta phòng chat (đề phòng tin nhắn bị sửa là tin nhắn cuối cùng)
+        // 🌟 BÍ THUẬT 4: Người sửa tin nhắn thành công mặc định là đã cập nhật mốc đọc mới nhất trùng với mốc updated_at của phòng
+        DB::table('participants')
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $myId)
+            ->update(['last_read_at' => now()]);
+
         $this->updateLastMessage($message->conversation);
 
-        // 7. Load lại toàn bộ nguyên con dữ liệu kèm relationship y hệt lúc gửi để FE húp phát ăn ngay
         $fullMessageData = $message->load([
             'sender:id,first_name,last_name,avatar',
             'parent.sender:id,first_name,last_name',
             'conversation.participants:id'
         ]);
 
-        // 8. PHÁT SÓNG REALTIME: Bắn tín hiệu sang cho đối phương cập nhật UI lập tức
-        // (Khúc này mốt bác tạo thêm cái Event tên là MessageEdited rồi bật dòng dưới lên là chuẩn bài)
         broadcast(new MessageEdited($fullMessageData))->toOthers();
 
         return response()->json([

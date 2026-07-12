@@ -1,8 +1,6 @@
-import { useConversationStore } from "@/stores/useConversationStore";
 import { IPartner } from "@/types/conversation";
-import { Menu, Phone, UserIcon, Users } from "lucide-react";
+import { Menu, UserIcon, Users } from "lucide-react";
 import Image from "next/image";
-import React from "react";
 
 interface HeaderBarProps {
   isGroup: boolean;
@@ -19,21 +17,16 @@ const HeaderBar = ({
   partner,
   onToggleOption,
 }: HeaderBarProps) => {
-  const selectConversation = useConversationStore(
-    (state) => state.selectConversation,
-  );
-
   return (
-    <div className="flex items-center justify-between px-5 py-3 bg-background/80 backdrop-blur-md border-b border-border">
+    <div className="flex items-center justify-between px-5 py-3 bg-card border-b border-matcha-light/20 dark:border-matcha-dark/30">
       <div className="flex items-center gap-3">
+        {/* Avatar */}
         <div className="relative shrink-0">
-          {/* Logic render Avatar trên Header Bar */}
-          <div className="size-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg overflow-hidden">
+          <div className="size-10 rounded-full bg-matcha/10 dark:bg-matcha/20 flex items-center justify-center overflow-hidden">
             {isGroup ? (
-              <Users className="size-5 text-primary" />
-            ) : partner ? ( // 1️⃣ Bảo đảm với TS là nhánh này partner luôn tồn tại
+              <Users className="size-5 text-forest dark:text-matcha-light" />
+            ) : partner ? (
               partner.avatar || displayAvatar ? (
-                // 🖼️ Nếu CÓ ảnh avatar
                 <Image
                   src={partner.avatar || displayAvatar || "/default-avatar.png"}
                   alt="avatar"
@@ -42,44 +35,47 @@ const HeaderBar = ({
                   className="w-full h-full object-cover shrink-0 block"
                 />
               ) : (
-                // 🔤 Nếu KHÔNG CÓ ảnh (avatar: null giống trong ảnh log của ông) -> Render chữ viết tắt
-                <span className="text-primary font-bold text-xs uppercase tracking-wider">
-                  {partner.first_name ? (
-                    partner.first_name.substring(0, 2)
-                  ) : partner.full_name ? (
-                    partner.full_name.substring(0, 2)
-                  ) : partner.username ? (
-                    partner.username.substring(0, 2)
-                  ) : (
-                    <UserIcon className="size-4" />
-                  )}
+                <span className="text-forest dark:text-matcha-light font-bold text-xs uppercase tracking-wider">
+                  {partner.first_name
+                    ? partner.first_name.substring(0, 2)
+                    : partner.full_name
+                      ? partner.full_name.substring(0, 2)
+                      : partner.username
+                        ? partner.username.substring(0, 2)
+                        : null}
                 </span>
               )
             ) : (
-              // 2️⃣ Nhánh cuối: Hoàn toàn không có dữ liệu partner
-              <UserIcon className="size-4" />
+              <UserIcon className="size-4 text-muted-foreground" />
             )}
           </div>
-          {selectConversation && (
-            <span className="absolute bottom-0 right-0 size-3 bg-emerald-500 rounded-full ring-2 ring-background"></span>
+
+          {!isGroup && partner?.status === "online" && (
+            <span className="absolute bottom-0 right-0 size-3 bg-emerald-500 rounded-full ring-2 ring-card" />
           )}
         </div>
-        <div>
-          <span className="font-semibold text-sm text-foreground block max-w-50 sm:max-w-xs truncate">
+
+        {/* Info */}
+        <div className="flex flex-col min-w-0">
+          <span className="font-medium text-sm text-foreground truncate max-w-50 sm:max-w-xs">
             {displayName}
           </span>
-          <span className="text-[10px] text-muted-foreground block">
-            {selectConversation ? "Đang hoạt động" : "Mojin Air Chat"}
-          </span>
+          {partner?.status === "online" && (
+            <span className="text-[11px] text-muted-foreground">
+              Đang hoạt động
+            </span>
+          )}
         </div>
       </div>
-      <div className="flex gap-4 text-muted-foreground">
-        <Phone className="size-4 cursor-pointer hover:text-primary transition-all duration-200" />
-        <Menu
-          onClick={onToggleOption}
-          className="size-4 cursor-pointer hover:text-primary transition-all duration-200"
-        />
-      </div>
+
+      {/* Menu Button */} 
+      <button
+        onClick={onToggleOption}
+        className="size-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-forest dark:hover:text-matcha-light hover:bg-matcha/10 dark:hover:bg-matcha/20 cursor-pointer"
+        aria-label="Mở menu tùy chọn"
+      >
+        <Menu className="size-4" />
+      </button>
     </div>
   );
 };

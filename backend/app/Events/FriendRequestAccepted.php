@@ -26,7 +26,7 @@ class FriendRequestAccepted implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new Channel('user-sidebar.' . $this->requesterId);
+        return new Channel('user-friend-actions.' . $this->requesterId);
     }
 
     public function broadcastAs()

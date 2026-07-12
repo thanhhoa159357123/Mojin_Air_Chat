@@ -20,12 +20,10 @@ export const useListFriendAndGroupHook = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
 
-  // 💡 CHÌA KHÓA: Lưu ID của cuộc trò chuyện đang được click mở menu ba chấm
   const [activePopupId, setActivePopupId] = useState<string | number | null>(null);
 
   const handleShowBlockedUsers = () => setShowBlockedUsers(!showBlockedUsers);
   
-  // Hàm đóng/mở linh hoạt theo ID
   const handleTogglePopup = (id: string | number) => {
     setActivePopupId((prev) => (prev === id ? null : id));
   };
@@ -46,7 +44,10 @@ export const useListFriendAndGroupHook = () => {
 
     if (realRoom) {
       setSelectConversation(realRoom);
-      if (Number(realRoom.unread_count || 0) > 0) {
+      
+      // 🌟 BÍ THUẬT: So sánh thời gian thay cho đếm số lượng
+      const hasNewNotification = new Date(realRoom.updated_at) > new Date(realRoom.my_last_read_at || 0);
+      if (hasNewNotification) {
         handleMarkConversationRead(realRoom.id);
       }
     } else {
@@ -113,8 +114,8 @@ export const useListFriendAndGroupHook = () => {
     isLoadingFriends,
     showBlockedUsers,
     handleShowBlockedUsers,
-    activePopupId, // Trả ID ra ngoài UI
-    handleTogglePopup, // Trả hàm toggle ra ngoài UI
-    handleClosePopup, // Trả hàm close ra ngoài UI
+    activePopupId,
+    handleTogglePopup,
+    handleClosePopup,
   };
 };

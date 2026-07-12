@@ -12,6 +12,7 @@ import {
 import { useConversationStore } from "@/stores/useConversationStore";
 import { IConversation } from "@/types/conversation";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export const useConversations = () => {
   const queryClient = useQueryClient();
@@ -82,27 +83,46 @@ export const useConversations = () => {
             : c,
         ),
       );
+
+      if (selectConversation?.id === variables.conversationId) {
+        setSelectConversation({
+          ...selectConversation,
+          participants: updated.participants || selectConversation.participants,
+        });
+      }
+
+      queryClient.invalidateQueries({
+        queryKey: ["participants", variables.conversationId],
+      });
     },
   });
 
-  // 4. MUTATION LẤY DANH SÁCH THÀNH VIÊN
-  const fetchParticipantsMutation = useMutation({
-    mutationFn: (conversationId: number) => getParticipants(conversationId),
-    onSuccess: (response, conversationId) => {
-      const participants = response.data?.data || response.data || response;
+  // 4. MUTATION LẤY DANH SÁCH THÀNH VIÊN (cache 5 phút)
+  // 4. TỰ ĐỘNG LẤY DANH SÁCH THÀNH VIÊN THEO PHÒNG ĐANG MỞ
+  const { data: participants = [] } = useQuery({
+    // Mỗi khi selectConversation?.id thay đổi, queryKey thay đổi -> Tự động kích hoạt fetch phòng mới
+    queryKey: ["participants", selectConversation?.id],
+    queryFn: async () => {
+      const response = await getParticipants(selectConversation!.id);
+      const freshParticipants =
+        response.data?.data || response.data || response;
 
-      // Hành động A: Chọc ngầm vào Cache ["conversations"] để nhét đống participants tươi mới này vào đúng phòng
+      // 💡 Bonus: Cập nhật đồng bộ ngược lại vào Cache tổng ["conversations"] cho đồng nhất dữ liệu
       queryClient.setQueryData<IConversation[]>(["conversations"], (old = []) =>
-        old.map((c) => (c.id === conversationId ? { ...c, participants } : c)),
+        old.map((c) =>
+          c.id === selectConversation!.id
+            ? { ...c, participants: freshParticipants }
+            : c,
+        ),
       );
 
-      // Hành động B: Nếu đang mở đúng phòng này, đè dữ liệu mới vào Zustand Store để Header đổi avatar/số thành viên ngay lập tức!
-      if (selectConversation?.id === conversationId) {
-        setSelectConversation({ ...selectConversation, participants });
-      }
+      return freshParticipants;
     },
-    onError: () => toast.error("Không thể tải danh sách thành viên mới!"),
+    // 🚀 CHỐT CHẶN: Chỉ khi nào user thực sự BẤM MỞ một phòng chat (có id) thì mới gọi API
+    enabled: !!selectConversation?.id,
+    staleTime: 1000 * 60 * 5, // Cache 5 phút ngon lành
   });
+
   // 5. MUTATION KICK THÀNH VIÊN
   const removeParticipantsMutation = useMutation({
     mutationFn: ({
@@ -113,16 +133,48 @@ export const useConversations = () => {
       userIds: number[];
     }) => removeParticipants(conversationId, userIds),
     onSuccess: (response, variables) => {
-      toast.success("Đã loại thành viên khỏi nhóm!");
+      toast.success("Thao tác thành công!");
       const updated = response.data || response;
 
-      queryClient.setQueryData<IConversation[]>(["conversations"], (old = []) =>
-        old.map((c) =>
-          c.id === variables.conversationId
-            ? { ...c, participants: updated.participants || c.participants }
-            : c,
-        ),
-      );
+      const myId = useAuthStore.getState().user?.id;
+      const isMeLeaving =
+        variables.userIds.length === 1 && variables.userIds[0] === myId;
+
+      // Nếu id là của tôi
+      if (myId) {
+        // Trường hợp tôi tự rời nhóm: Xóa bỏ phòng chat khỏi cache ["conversations"] và reset selectConversation
+        if (isMeLeaving) {
+          queryClient.setQueryData<IConversation[]>(
+            ["conversations"],
+            (old = []) => old.filter((c) => c.id !== variables.conversationId),
+          );
+          if (selectConversation?.id === variables.conversationId) {
+            setSelectConversation(null);
+          }
+        }
+      } else {
+        // Nếu là người khác bị kick: Cập nhật lại danh sách participants trong cache ["conversations"]
+        queryClient.setQueryData<IConversation[]>(
+          ["conversations"],
+          (old = []) =>
+            old.map((c) =>
+              c.id === variables.conversationId
+                ? { ...c, participants: updated.participants || c.participants }
+                : c,
+            ),
+        );
+
+        if (selectConversation?.id === variables.conversationId) {
+          setSelectConversation({
+            ...selectConversation,
+            participants:
+              updated.participants || selectConversation.participants,
+          });
+        }
+      }
+      queryClient.invalidateQueries({
+        queryKey: ["participants", variables.conversationId],
+      });
     },
   });
 
@@ -131,30 +183,32 @@ export const useConversations = () => {
     mutationFn: (conversationId: number) =>
       markConversationRead(conversationId),
     onMutate: async (conversationId) => {
-      // Khi user click chọn phòng, ép số thông báo chưa đọc về 0 ngay lập tức trên UI
+      const nowIso = new Date().toISOString(); // Lấy mốc thời gian hiện tại
+
+      // Ép mốc thời gian đọc mới nhất ngay lập tức trên UI để dập tắt chấm xanh
       queryClient.setQueryData<IConversation[]>(["conversations"], (old = []) =>
         old.map((c) =>
-          c.id === conversationId ? { ...c, unread_count: 0 } : c,
+          c.id === conversationId ? { ...c, my_last_read_at: nowIso } : c,
         ),
       );
 
-      // Cập nhật luôn trạng thái phòng đang chọn trong Zustand Store
+      // Cập nhật đồng bộ trạng thái phòng đang chọn trong Zustand Store
       if (selectConversation?.id === conversationId) {
-        setSelectConversation({ ...selectConversation, unread_count: 0 });
+        setSelectConversation({ ...selectConversation, my_last_read_at: nowIso });
       }
     },
   });
 
   return {
     conversations,
+    participants,
     loading: isLoading,
     error: error ? (error as Error).message : null,
     handleCreateConversation: (label: string, participantIds: number[]) =>
       createMutation.mutate({ label, participantIds }),
     handleAddParticipants: (conversationId: number, userIds: number[]) =>
       addParticipantsMutation.mutate({ conversationId, userIds }),
-    handleFetchParticipants: (conversationId: number) =>
-      fetchParticipantsMutation.mutate(conversationId),
+
     handleRemoveParticipants: (conversationId: number, userIds: number[]) =>
       removeParticipantsMutation.mutate({ conversationId, userIds }),
     handleMarkConversationRead: (conversationId: number) =>

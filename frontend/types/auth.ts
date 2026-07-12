@@ -1,4 +1,5 @@
 // types/auth.ts
+import { IUpdateProfileInput } from "@/services/authService";
 import { z } from "zod";
 
 export interface IUser {
@@ -50,6 +51,9 @@ export interface IAuthState {
   checkAuth: () => Promise<void>;
 
   updateAvatarState: (avatarUrl: string) => void;
+  updateProfileState: (updatedUser: IUser) => void;
+
+  updateProfile: (data: IUpdateProfileInput) => Promise<void>;
 }
 
 // Schema cho Đăng ký

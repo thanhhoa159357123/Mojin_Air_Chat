@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -44,7 +45,7 @@ const HasMessage = ({
   startEditing,
 }: HasMessageProps) => {
   const user = useAuthStore((state) => state.user);
-  
+
   // 💡 CHUYỂN SANG DÙNG useChats và queryClient
   const queryClient = useQueryClient();
   const { handleSendMessage } = useChats(selectConversation);
@@ -58,7 +59,7 @@ const HasMessage = ({
     if (typeof contentData === "string") {
       try {
         return JSON.parse(contentData);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         return { text: contentData, images: [], files: [] };
       }
@@ -199,6 +200,7 @@ const HasMessage = ({
                 </span>
               )}
 
+              {/* HIỂN THỊ HÀNG LOẠT ẢNH NẾU CÓ */}
               {currentContent.images && currentContent.images.length > 0 && (
                 <div
                   className={`grid gap-1 mt-0.5 rounded-lg overflow-hidden ${msg.isError ? "opacity-40" : ""} ${
@@ -215,7 +217,6 @@ const HasMessage = ({
                         key={idx}
                         className="relative overflow-hidden rounded-lg"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={url}
                           alt="Chat attachment"
@@ -249,6 +250,7 @@ const HasMessage = ({
                 </div>
               )}
 
+              {/* HIỂN THỊ DANH SÁCH FILE NẾU CÓ */}
               {currentContent.files && currentContent.files.length > 0 && (
                 <div className="flex flex-col gap-1 mt-0.5">
                   {currentContent.files.map((fileObj: any, idx: number) => {
@@ -289,6 +291,13 @@ const HasMessage = ({
                     );
                   })}
                 </div>
+              )}
+
+              {/* 🌟 VÀ VÁ THÊM KHÚC NÀY CỦA BÁC: Render đoạn Text đi kèm ảnh/file */}
+              {currentContent.text && (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word pt-1 text-white">
+                  {currentContent.text}
+                </p>
               )}
             </div>
           ) : (
@@ -350,16 +359,19 @@ const HasMessage = ({
         <button
           onClick={() => {
             // 1. Xóa thẳng tin nhắn lỗi này khỏi Cache của TanStack Query
-            queryClient.setQueryData(["messages", selectConversation?.id], (old: any) => {
-              if (!old) return old;
-              return {
-                ...old,
-                pages: old.pages.map((page: any) => ({
-                  ...page,
-                  data: page.data.filter((m: any) => m.id !== msg.id),
-                })),
-              };
-            });
+            queryClient.setQueryData(
+              ["messages", selectConversation?.id],
+              (old: any) => {
+                if (!old) return old;
+                return {
+                  ...old,
+                  pages: old.pages.map((page: any) => ({
+                    ...page,
+                    data: page.data.filter((m: any) => m.id !== msg.id),
+                  })),
+                };
+              },
+            );
 
             // 2. Bắn lại API (Nó sẽ tự đẻ ra 1 cục Fake Message mới đang xoay vòng vòng siêu đẹp)
             handleSendMessage(msg.content, msg.parent_id, msg.type);

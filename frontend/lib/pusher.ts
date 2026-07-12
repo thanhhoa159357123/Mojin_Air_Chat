@@ -3,7 +3,7 @@ import Pusher from "pusher-js";
 
 // Bật log ở môi trường dev để dễ debug
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
-  Pusher.logToConsole = true;
+  Pusher.logToConsole = false; // Tắt log để tránh spam console, bật khi cần debug
 }
 
 // 💡 ÉP KIỂU KHÉO LÉO: Bảo TypeScript coi cục Pusher này là kiểu "any" tạm thời để qua mắt nó

@@ -30,8 +30,14 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json($request->user());
     });
 
+    // Cập nhật thông tin user hiện tại
+    Route::put('/user/update-information', [AuthController::class, 'updateInformation']);
+
     // Route cập nhật trạng thái On/Off
     Route::post('/user/status', [ConversationController::class, 'updateStatus']);
+
+    // Route lấy chi tiết thông tin friend
+    Route::get('/user/{friendId}', [FriendController::class, 'getUserDetail']);
 
     Route::put('/user/update', [AuthController::class, 'updateInformation']);
     Route::post('/add-avatar', [AuthController::class, 'addAvatar']);
@@ -55,6 +61,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Tìm kiếm người dùng để kết bạn (dựa trên tên hoặc username)
         Route::get('/search', [FriendController::class, 'searchFriends']);
+
+        // Xóa bạn bè (Unfriend)
+        Route::delete('/unfriend/{friendId}', [FriendController::class, 'unFriend']);
+
+        // Block người dùng (Chặn người dùng, không cho họ nhắn tin hoặc gửi lời mời kết bạn)
+        Route::post('/block/{friendId}', [FriendController::class, 'blockFriend']);
+
+        // Unblock người dùng (Bỏ chặn người dùng)
+        Route::post('/unblock/{friendId}', [FriendController::class, 'unblockFriend']);
+
+        // Lấy danh sách người dùng bị chặn (Blocked Users)
+        Route::get('/blocked', [FriendController::class, 'getBlockedFriends']);
     });
 
     // --- Chức năng Nhắn tin (Chat) ---

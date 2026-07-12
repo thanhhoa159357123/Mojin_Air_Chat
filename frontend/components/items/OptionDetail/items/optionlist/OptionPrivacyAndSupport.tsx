@@ -6,7 +6,7 @@ interface OptionPrivacyAndSupportProps {
   isOpenPrivacy: boolean;
   setIsOpenPrivacy: () => void;
   handleAllDeleteMessages: () => void;
-  selectConversation: IConversation | null; // Thêm prop selectConversation để sử dụng trong OptionPrivacyAndSupport
+  selectConversation: IConversation | null;
 }
 
 const OptionPrivacyAndSupport = ({
@@ -16,40 +16,34 @@ const OptionPrivacyAndSupport = ({
   selectConversation,
 }: OptionPrivacyAndSupportProps) => {
   return (
-    <div className="rounded-xl overflow-hidden">
+    <div>
+      {/* Header */}
       <div
-        className="flex items-center justify-between px-3 py-3 cursor-pointer transition-all duration-200 hover:bg-accent group"
+        className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer hover:bg-matcha/5 dark:hover:bg-matcha/10 group"
         onClick={setIsOpenPrivacy}
       >
-        <span className="font-medium text-foreground group-hover:text-primary">
+        <span className="text-sm font-medium text-foreground group-hover:text-forest dark:group-hover:text-matcha-light">
           Quyền riêng tư và hỗ trợ
         </span>
         <ChevronRight
-          className={`size-4 text-muted-foreground transition-all duration-300 ${
-            isOpenPrivacy
-              ? "rotate-90 text-primary"
-              : "group-hover:translate-x-0.5"
-          }`}
+          className={`size-4 text-muted-foreground ${isOpenPrivacy ? "rotate-90 text-forest dark:text-matcha-light" : ""}`}
         />
       </div>
 
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isOpenPrivacy ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <div className="px-2 py-1 space-y-1">
+      {/* Content */}
+      {isOpenPrivacy && (
+        <div className="px-1 pb-1 space-y-0.5">
           <div
             onClick={() => selectConversation && handleAllDeleteMessages()}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-accent group/item"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-matcha/5 dark:hover:bg-matcha/10"
           >
-            <div className="p-1.5 rounded-lg bg-primary/10 group-hover/item:bg-primary/20 transition-colors">
-              <Trash className="size-4 text-primary" />
+            <div className="p-1.5 rounded-md bg-danger/10 dark:bg-danger/20">
+              <Trash className="size-3.5 text-danger" />
             </div>
             <span className="text-sm text-foreground">Xoá tin nhắn</span>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

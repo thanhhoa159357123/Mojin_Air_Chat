@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\FriendBlocked;
 use App\Events\FriendRequestAccepted;
 use App\Events\FriendRequestSent;
+use App\Events\FriendshipDeleted;
+use App\Events\FriendUnblocked;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ChatFriendSearchResource;
 use App\Http\Resources\FriendRequestResource;
 use App\Http\Resources\FriendResource;
 use App\Http\Resources\UserSearchResource;
-use App\Models\Message;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Models\Friend;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class FriendController extends Controller
@@ -218,6 +221,19 @@ class FriendController extends Controller
                     ->orWhere('last_name', 'like', "%{$searchTerm}%");
             })
 
+            ->whereNotExists(function ($query) use ($user) {
+                $query->select(DB::raw(1))
+                    ->from('friends')
+                    ->where('status', self::STATUS_BLOCKED)
+                    ->where(function ($q) use ($user) {
+                        $q->where(function ($sub) use ($user) {
+                            $sub->where('user_id', $user->id)->whereColumn('friend_id', 'users.id');
+                        })->orWhere(function ($sub) use ($user) {
+                            $sub->where('friend_id', $user->id)->whereColumn('user_id', 'users.id');
+                        });
+                    });
+            })
+
             // 4. Sửa lại Subquery chuẩn: Bọc group logic orWhere lại cho chuẩn SQL
             ->addSelect([
                 'pivot_status' => DB::table('friends')
@@ -243,6 +259,143 @@ class FriendController extends Controller
         ]);
     }
 
-    // TODO: Thêm tính năng xóa bạn bè
-    // TODO: Thêm tính năng block người dùng
+    // Thêm tính năng xóa bạn bè
+    public function unFriend(int $friendId): JsonResponse
+    {
+        $userId = Auth::id();
+
+        // Tiến hành xóa liên kết 2 chiều
+        DB::table('friends')->where(function ($query) use ($userId, $friendId) {
+            $query->where(function ($q) use ($userId, $friendId) {
+                $q->where('user_id', $userId)->where('friend_id', $friendId);
+            })->orWhere(function ($q) use ($userId, $friendId) {
+                $q->where('user_id', $friendId)->where('friend_id', $userId);
+            });
+        })->delete();
+
+        // 💡 BỎ CÁI IF CHECK REPSONSE 404 ĐI BÁC. 
+        // Cứ xóa xong (hoặc bảng đã sạch sẵn) là coi như thành công, bắn event real-time luôn!
+        event(new FriendshipDeleted($userId, $friendId));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hủy kết bạn thành công.'
+        ]);
+    }
+
+    // Thêm tính năng block người dùng
+    public function blockFriend(int $friendId): JsonResponse
+    {
+        $userId = Auth::id();
+
+        if ($userId == $friendId) {
+            return response()->json(['message' => 'Bạn không thể chặn chính mình.'], 400);
+        }
+
+        DB::table('friends')->where(function ($query) use ($userId, $friendId) {
+            $query->where(function ($q) use ($userId, $friendId) {
+                $q->where('user_id', $userId)->where('friend_id', $friendId);
+            })->orWhere(function ($q) use ($userId, $friendId) {
+                $q->where('user_id', $friendId)->where('friend_id', $userId);
+            });
+        })->delete();
+
+        // Cập nhật trạng thái block trong bảng friends
+        DB::table('friends')->insert([
+            'user_id' => $userId,
+            'friend_id' => $friendId,
+            'status' => self::STATUS_BLOCKED,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        broadcast(new FriendBlocked($userId, $friendId));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Người dùng đã bị chặn thành công.'
+        ]);
+    }
+
+    // Hủy block người dùng
+    public function unBlockFriend(int $friendId): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $deleted = DB::table('friends')
+            ->where('user_id', $userId)
+            ->where('friend_id', $friendId)
+            ->where('status', self::STATUS_BLOCKED)
+            ->delete();
+
+        if (!$deleted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không chặn người dùng này hoặc bản ghi không tồn tại.'
+            ], 404);
+        }
+
+        broadcast(new FriendUnblocked($userId, $friendId));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Người dùng đã được bỏ chặn thành công.'
+        ]);
+    }
+
+    // Lấy danh sách người dùng bị chặn
+    public function getBlockedFriends(): JsonResponse
+    {
+        $userId = Auth::id();
+
+        // 💡 CHỈ LẤY những người nằm ở cột `friend_id` mà do chính `$userId` chặn
+        $blockedUsers = DB::table('friends')
+            ->join('users', 'friends.friend_id', '=', 'users.id') // Join trực tiếp, loại bỏ hoàn toàn orOn lỗi
+            ->where('friends.user_id', $userId)
+            ->where('friends.status', self::STATUS_BLOCKED)
+            ->select('users.id', 'users.first_name', 'users.last_name', 'users.username', 'users.avatar')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $blockedUsers
+        ]);
+    }
+
+    // Lấy chi tiết người dùng
+    public function getUserDetail(int $friendId): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $friendship = DB::table('friends')
+            ->where(function ($query) use ($userId, $friendId) {
+                $query->where(function ($q) use ($userId, $friendId) {
+                    $q->where('user_id', $userId)->where('friend_id', $friendId);
+                })->orWhere(function ($q) use ($userId, $friendId) {
+                    $q->where('user_id', $friendId)->where('friend_id', $userId);
+                });
+            })
+            ->first();
+
+        if (!$friendship) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Người dùng không tồn tại hoặc không phải bạn bè.'
+            ], 404);
+        }
+
+        $user = User::find($friendId);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Người dùng không tồn tại.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $user
+        ]);
+    }
 }

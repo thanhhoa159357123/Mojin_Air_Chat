@@ -8,11 +8,13 @@ export interface IConversation {
   avatar?: string | null; // Chỉ có nhóm mới có avatar, còn private thì lấy avatar của partner
   label: string;
   updated_at: string;
+  is_read_only?: boolean; // Dùng để đánh dấu phòng ảo (friend id) chỉ đọc, không cho gửi tin nhắn
 
   participants: IFriend[]; // Bọn BE trả về danh sách người tham gia (chứa thông tin friend)
   last_message?: IMessage | null; // Thông tin tin nhắn cuối cùng để làm preview
-  unread_count?: number; // Số tin nhắn chưa đọc
   is_virtual?: boolean; // Phân biệt phòng ảo (friend id) và phòng thật
+  
+  my_last_read_at?: string | null;
 }
 
 export interface IPartner {
@@ -26,8 +28,16 @@ export interface IPartner {
 }
 
 export interface IConversationState {
+  currentAction: "unfriend" | "block" | "detail" | null;
+  targetFriend: { id: number; name: string } | null;
+
+  // 💡 Bổ sung hàm này
+  setActionTarget: (
+    action: "unfriend" | "block" | "detail" | null,
+    friend: { id: number; name: string } | null,
+  ) => void;
+
   selectConversation: IConversation | null;
   setSelectConversation: (conversation: IConversation | null) => void;
   reset: () => void;
-
 }

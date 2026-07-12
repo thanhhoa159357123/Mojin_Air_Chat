@@ -1,14 +1,15 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query"; // 💡 THẦN KHÍ MỚI
-import { useAuthStore } from "@/stores/useAuthStore";
 import { IMessage } from "@/types/message";
 import { useChats } from "@/hooks/useChats";
 import { useConversationStore } from "@/stores/useConversationStore";
 import { sendTypingSignal } from "@/services/conversationService";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface IAttachmentPreview {
   id: string;
@@ -18,15 +19,13 @@ export interface IAttachmentPreview {
 }
 
 export const useInputRefHook = () => {
-  const user = useAuthStore((state) => state.user);
   const selectConversation = useConversationStore(
     (state) => state.selectConversation,
   );
 
-  const queryClient = useQueryClient(); // 💡 Khởi tạo QueryClient để chọc vào Cache
-
   // 💡 LẤY SÚNG TỪ KHO VŨ KHÍ MỚI
   const { handleSendMessage, handleEditMessage } = useChats(selectConversation);
+  const queryClient = useQueryClient();
 
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const isTypingLockedRef = useRef(false);
@@ -173,18 +172,134 @@ export const useInputRefHook = () => {
       return;
     }
 
+    // 💡 LƯU LẠI GIÁ TRỊ TRƯỚC KHI RESET UI ĐỂ TRÁNH MẤT DATA
+    const currentReplyingTo = replyingTo?.id || null;
+
+    // Reset UI ngay lập tức cho mượt (Optimistic UI)
     setInputValue("");
     setAttachments([]);
     setReplyingTo(null);
     if (textAreaRef.current) textAreaRef.current.style.height = "auto";
 
-    // Trường hợp 1: Chỉ gửi Text
+    // 🎯 TRƯỜNG HỢP 1: CHỈ GỬI TEXT
     if (hasText && !hasAttachments) {
       try {
-        await handleSendMessage(textToSend, replyingTo?.id || null, "text");
+        await handleSendMessage(textToSend, currentReplyingTo, "text");
       } catch (err) {
         console.error(err);
       }
+      return;
+    }
+
+    // 🎯 TRƯỜNG HỢP 2: CÓ HÀNG CHỜ ẢNH (KÈM HOẶC KHÔNG KÈM TEXT)
+    if (hasAttachments) {
+      // 1. Găm lại đống ảnh trong hàng chờ và text để xử lý ngầm
+      const currentAttachments = [...attachments];
+      const currentReplyingTo = replyingTo?.id || null;
+
+      // 2. Reset UI bên ngoài lập tức cho User sướng mắt
+      setInputValue("");
+      setAttachments([]);
+      setReplyingTo(null);
+      if (textAreaRef.current) textAreaRef.current.style.height = "auto";
+
+      // 3. 🚨 BÍ THUẬT: Đẻ ngay một cục Payload Fake chứa Blob URL để nhét vào UI lập tức
+      const localImageUrls = currentAttachments.map((item) => item.previewUrl);
+      const optimisticPayload = JSON.stringify({
+        text: textToSend,
+        images: localImageUrls, // Dùng ảnh Blob RAM hiện lên UI luôn!
+        files: [],
+      });
+
+      // 4. Tạo một ID tạm thời âm bản để lát nữa Backend trả về ta tìm đúng đứa này ta đè lên
+      const optimisticMsgId = `fake_msg_${Date.now()}`;
+
+      // 5. Nạp thẳng cục Fake này vào Cache TanStack Query (Optimistic Update)
+      const queryKey = ["messages", selectConversation?.id];
+
+      queryClient.setQueryData(queryKey, (old: any) => {
+        if (!old) return old;
+
+        // Bơm cục tin nhắn fake vào cuối mảng tin nhắn
+        const fakeMessage: IMessage = {
+          id: optimisticMsgId as any,
+          user_id: useAuthStore.getState().user?.id || 0,
+          content: optimisticPayload,
+          type: "mixed",
+          parent_id: currentReplyingTo,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          edit_count: 0,
+          isSending: true, // Bật cờ thông báo đang xoay vòng loading
+        } as any;
+
+        return {
+          ...old,
+          pages: old.pages.map((page: any, index: number) => {
+            // Vì tin nhắn mới nằm ở cuối mảng, nếu là page cuối (hoặc page đầu tùy cấu hình của bác)
+            // Ta push vào data tin nhắn
+            if (index === 0) {
+              // Thường page đầu tiên chứa tin mới nhất
+              return { ...page, data: [...page.data, fakeMessage] };
+            }
+            return page;
+          }),
+        };
+      });
+
+      // 6. 🔥 CHẠY NGẦM BACKGROUND: Upload lên Cloudinary và bắn API thật
+      (async () => {
+        try {
+          // Chạy upload ngầm
+          const uploadPromises = currentAttachments.map((item) =>
+            uploadSingleFileToCloudinary(item),
+          );
+          const uploadedUrls = await Promise.all(uploadPromises);
+
+          const realPayload = JSON.stringify({
+            text: textToSend,
+            images: uploadedUrls, // URL xịn từ Cloudinary
+            files: [],
+          });
+
+          // Bắn API thật lên server
+          await handleSendMessage(realPayload, currentReplyingTo, "mixed");
+
+          // 7. Xóa cụ nó cái cục tin nhắn Fake đi sau khi API thật chạy xong thành công
+          // (Vì Pusher/Socket hoặc data trả về của query sẽ tự cập nhật ảnh xịn vào)
+          queryClient.setQueryData(queryKey, (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: any) => ({
+                ...page,
+                data: page.data.filter(
+                  (m: any) => m.id !== (optimisticMsgId as any),
+                ),
+              })),
+            };
+          });
+        } catch (error) {
+          console.error("Lỗi upload ảnh ngầm:", error);
+
+          // Nếu toang, chuyển trạng thái cục fake thành lỗi để user bấm gửi lại
+          queryClient.setQueryData(queryKey, (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: any) => ({
+                ...page,
+                data: page.data.map((m: any) =>
+                  m.id === (optimisticMsgId as any)
+                    ? { ...m, isSending: false, isError: true }
+                    : m,
+                ),
+              })),
+            };
+          });
+        }
+      })();
+
       return;
     }
   };

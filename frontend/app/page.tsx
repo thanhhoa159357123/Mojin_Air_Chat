@@ -7,7 +7,7 @@ import PopUpAddfriend from "@/components/items/PopUp/PopUpAddfriend";
 import PopUpCreateGroup from "@/components/items/PopUp/PopUpCreateGroup";
 import PopUpNotification from "@/components/items/PopUp/PopUpNotification";
 import PopUpNotificationDeleteMessage from "@/components/items/PopUp/PopUpNotificationDeleteMessage";
-import PopUpSettingAccount from "@/components/items/PopUp/PopUpSettingAccount";
+import PopUpSettingAccount from "@/components/items/PopUp/SettingAccount/PopUpSettingAccount";
 import PopUpManageMember from "@/components/items/PopUp/PopUpManageMember";
 import Sidebar from "@/components/items/Sidebar";
 import { useChats } from "@/hooks/useChats";
@@ -18,15 +18,14 @@ import { useState } from "react";
 
 import { useConversationStore } from "@/stores/useConversationStore";
 import NonConversation from "@/components/NonConversation";
-// import { useAuthStore } from "@/stores/useAuthStore";
+import PopUpUnFriendOrBlock from "@/components/items/PopUp/PopUpUnFriendOrBlock";
+import PopUpDetailFriend from "@/components/items/PopUp/PopUpDetailFriend";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function Home() {
   const selectConversation = useConversationStore(
     (state) => state.selectConversation,
   );
-
-  // 💡 1. Bốc mắt thần và cờ loading ra
-  // const { user, loading } = useAuthStore();
 
   useFriendPusher();
   const { isOpen, open, close } = usePopUpManager();
@@ -43,6 +42,14 @@ export default function Home() {
     setIsVisibleNotificationDeleteMessage,
   ] = useState(false);
   const [isOpenMember, setIsOpenMember] = useState(false);
+  const currentAction = useConversationStore((state) => state.currentAction);
+  const targetFriend = useConversationStore((state) => state.targetFriend);
+  const setActionTarget = useConversationStore(
+    (state) => state.setActionTarget,
+  );
+  const user = useAuthStore((state) => state.user);
+  console.log("Trạng thái User hiện tại: ", user)
+  console.log("Đã vào trang chủ");
 
   return (
     <div className="w-full h-screen bg-background flex gap-4 px-4 py-3 overflow-hidden font-sans">
@@ -147,6 +154,24 @@ export default function Home() {
       <AnimatePresence>
         {isOpenMember && (
           <PopUpManageMember onClose={() => setIsOpenMember(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {(currentAction === "unfriend" || currentAction === "block") &&
+          targetFriend !== null && (
+            <PopUpUnFriendOrBlock
+              onClose={() => setActionTarget(null, null)} // Tắt popup = clear state
+            />
+          )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {currentAction === "detail" && targetFriend !== null && (
+          <PopUpDetailFriend
+            onClose={() => setActionTarget(null, null)} // Tắt popup = clear state
+            partnerId={targetFriend.id}
+          />
         )}
       </AnimatePresence>
     </div>

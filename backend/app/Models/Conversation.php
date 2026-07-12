@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Conversation extends Model
 {
-    protected $fillable = ['type', 'label', 'avatar', 'last_message_id'];
+    protected $fillable = ['type', 'label', 'avatar'];
 
     // Một cuộc hội thoại có nhiều người tham gia
     public function participants()
     {
         return $this->belongsToMany(User::class, 'participants')
-            ->withPivot(['last_read_at', 'cleared_at', 'role'])
-            ->withTimestamps();
+            ->withPivot(['last_read_at', 'cleared_at', 'role']);
+        // ->withTimestamps();
     }
 
     // Một cuộc hội thoại có nhiều tin nhắn
@@ -25,6 +25,6 @@ class Conversation extends Model
     // Liên kết với tin nhắn mới nhất để hiển thị ra danh sách
     public function lastMessage()
     {
-        return $this->belongsTo(Message::class, 'last_message_id');
+        return $this->hasOne(Message::class)->latestOfMany();
     }
 }

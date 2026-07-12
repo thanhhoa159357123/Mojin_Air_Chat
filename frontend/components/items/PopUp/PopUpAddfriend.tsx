@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useConversationStore } from "@/stores/useConversationStore";
 import { useFriends } from "@/hooks/useFriends"; // 💡 Gọi Hook TanStack Query tổng lực
 import { IConversation } from "@/types/conversation";
+import { useConversations } from "@/hooks/useConversations";
 import { Loader2, Search, X } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -16,8 +18,10 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const setSelectConversation = useConversationStore((state) => state.setSelectConversation);
-  const currentConversations = useConversationStore((state) => state.conversations);
+  const setSelectConversation = useConversationStore(
+    (state) => state.setSelectConversation,
+  );
+  const { conversations = [] } = useConversations();
 
   // 💡 1. KÉO CÁC HÀM TÁC CHIẾN TỪ TANSTACK QUERY QUỐC DÂN
   const { addFriend, useSearchFriendsInfinite } = useFriends();
@@ -56,7 +60,7 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
           fetchNextPage(); // Thần chú tự sang trang ngầm của TanStack Query
         }
       },
-      { threshold: 1.0 }
+      { threshold: 1.0 },
     );
 
     if (observerRef.current) observer.observe(observerRef.current);
@@ -81,7 +85,9 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
         <div className="w-112.5 bg-card rounded-3xl shadow-2xl border border-border overflow-hidden">
           {/* Header */}
           <div className="px-5 py-3 border-b border-border bg-secondary/50 flex justify-between items-center">
-            <h2 className="text-xl font-extrabold text-primary tracking-tight">Thêm bạn bè</h2>
+            <h2 className="text-xl font-extrabold text-primary tracking-tight">
+              Thêm bạn bè
+            </h2>
             <div
               className="size-8 rounded-full bg-secondary flex items-center justify-center cursor-pointer hover:bg-accent transition-all"
               onClick={onCloseAddFriend}
@@ -109,14 +115,18 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
             {/* Results List */}
             <div className="mt-8">
               <div className="flex justify-between items-center mb-4 px-1">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Gợi ý cho bác</p>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                  Gợi ý cho bác
+                </p>
                 <span className="text-[10px] bg-secondary text-primary px-2 py-0.5 rounded-full font-bold">
                   {searchResults.length} người
                 </span>
               </div>
 
               {searchError && (
-                <p className="text-sm text-red-500 px-1 mb-2">{(searchError as Error).message}</p>
+                <p className="text-sm text-red-500 px-1 mb-2">
+                  {(searchError as Error).message}
+                </p>
               )}
 
               <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
@@ -124,20 +134,39 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
                   <>
                     {searchResults.map((user) => {
                       const renderActionButton = () => {
+                        // 💡 CHỐT CHẶN: Nếu status là null hoặc undefined nghĩa là CHƯA CÓ QUAN HỆ -> Bắn thẳng về nút Kết bạn luôn!
+                        if (
+                          user.friendship_status === null ||
+                          user.friendship_status === undefined
+                        ) {
+                          return (
+                            <button
+                              onClick={() => addFriend(user.id)}
+                              className="px-4 py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
+                            >
+                              Kết bạn
+                            </button>
+                          );
+                        }
+
+                        // Nếu có giá trị thì mới chạy switch case an toàn
                         switch (Number(user.friendship_status)) {
                           case 1: // Đã là bạn bè
                             return (
                               <button
                                 onClick={() => {
-                                  // Tìm phòng thật chat lịch sử
-                                  const realRoom = currentConversations.find((c) =>
-                                    c.participants?.some((p) => p.id === user.id)
+                                  // 🚀 Bỏ dấu phẩy thừa ở cuối dòng .some()
+                                  const realRoom = conversations.find(
+                                    (c: IConversation) =>
+                                      c.participants?.some(
+                                        (p: any) =>
+                                          Number(p.id) === Number(user.id),
+                                      ),
                                   );
 
                                   if (realRoom) {
                                     setSelectConversation(realRoom);
                                   } else {
-                                    // Bạn mới chưa chat bao giờ -> Fake nhẹ cấu trúc phòng thật gửi xuống
                                     const fallbackRoom: IConversation = {
                                       id: user.id,
                                       type: "private",
@@ -154,7 +183,6 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
                                 Nhắn tin
                               </button>
                             );
-
                           case 0: // Đang chờ kết bạn
                             return (
                               <button
@@ -165,7 +193,7 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
                               </button>
                             );
 
-                          default: // Chưa có quan hệ -> Gọi mutate addFriend từ TanStack Query
+                          default:
                             return (
                               <button
                                 onClick={() => addFriend(user.id)}
@@ -176,7 +204,6 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
                             );
                         }
                       };
-
                       return (
                         <div
                           key={user.id}
@@ -215,14 +242,18 @@ const PopUpAddfriend = ({ onCloseAddFriend }: IPopUpAddFriend) => {
                     })}
 
                     {/* Trạm thu phí tự động của TanStack */}
-                    <div ref={observerRef} className="h-10 flex justify-center items-center mt-2">
+                    <div
+                      ref={observerRef}
+                      className="h-10 flex justify-center items-center mt-2"
+                    >
                       {isFetchingNextPage && (
                         <Loader2 className="size-5 text-primary animate-spin" />
                       )}
                     </div>
                   </>
                 ) : (
-                  debouncedSearch.trim() !== "" && !isSearchLoading && (
+                  debouncedSearch.trim() !== "" &&
+                  !isSearchLoading && (
                     <p className="text-center text-sm text-muted-foreground mt-4">
                       Không tìm thấy anh hào nào mang tên này.
                     </p>

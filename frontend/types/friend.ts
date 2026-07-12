@@ -17,6 +17,8 @@ export interface IFriend {
   last_message: ILastMessage | null; // Cần có | null vì nếu chưa bao giờ nhắn tin thì subquery nhả ra null
   pivot?: {
     last_read_at?: string | null;
+
+    role?: string; // Chỉ có trong group (pivot.role) để phân biệt creator/member
   };
   created_at?: string;
   updated_at?: string;

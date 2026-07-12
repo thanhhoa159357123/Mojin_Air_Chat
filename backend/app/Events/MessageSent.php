@@ -32,9 +32,9 @@ class MessageSent implements ShouldBroadcast
 
         // 2. Kênh 2: Quét toàn bộ thành viên trong phòng (trừ thằng gửi)
         // để bắn thẳng vào Sidebar của tụi nó
-        if (isset($this->message->conversation->participants)) {
+        if ($this->message->conversation && $this->message->conversation->participants) {
             foreach ($this->message->conversation->participants as $participant) {
-                // Không bắn lại cho chính thằng gửi (để tránh tự đẩy noti cho mình)
+                // Không bắn lại cho chính thằng gửi
                 if ($participant->id !== $this->message->user_id) {
                     $channels[] = new Channel('user-sidebar.' . $participant->id);
                 }

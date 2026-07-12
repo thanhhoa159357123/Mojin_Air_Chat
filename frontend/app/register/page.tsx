@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -242,15 +243,24 @@ const RegisterPage = () => {
         </div>
 
         {/* Right Illustration */}
-        <div className="hidden lg:flex w-2/5 items-center justify-center bg-primary/5 dark:bg-primary/10 p-12">
-          <Image
-            src="/file.svg"
-            alt="Illustration"
-            width={260}
-            height={260}
-            className="animate-float opacity-90 dark:opacity-80"
-            priority
+        <div className="relative flex flex-col w-2/5 items-center justify-center text-center bg-primary/5 dark:bg-primary/10 p-12">
+          <img
+            src="/assets/mojinair.svg"
+            alt="Logo Mojin Air"
+            className="object-contain animate-float opacity-95 dark:opacity-90 w-65 h-65"
+            style={{
+              filter:
+                "drop-shadow(0 0 8px rgba(76,175,80,0.7)) drop-shadow(0 0 20px rgba(76,175,80,0.4)) drop-shadow(0 0 40px rgba(76,175,80,0.2))",
+            }}
           />
+          <div className="mt-10 space-y-2">
+            <h3 className="text-foreground font-semibold text-lg tracking-tight">
+              Chào mừng thành viên mới!
+            </h3>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Mojin Air đã sẵn sàng cho những cuộc trò chuyện mới của bạn.
+            </p>
+          </div>
         </div>
       </div>
     </div>

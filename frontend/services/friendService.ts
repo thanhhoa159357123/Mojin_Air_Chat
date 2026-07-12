@@ -21,7 +21,7 @@ export const addFriend = async (friendId: number): Promise<IFriend> => {
     friend_id: friendId,
   });
   // Trả về cục data friend thực sự chứ không trả về cái chữ "message"
-  return response.data?.data || response.data; 
+  return response.data?.data || response.data;
 };
 
 export const getFriendRequests = async (): Promise<{ data: IFriend[] }> => {
@@ -51,5 +51,30 @@ export const addAvatar = async (avtUrl: string) => {
   const response = await axiosClient.post("/add-avatar", {
     avatar: avtUrl,
   });
+  return response.data;
+};
+
+export const unFriend = async (friendId: number) => {
+  const response = await axiosClient.delete(`/friends/unfriend/${friendId}`);
+  return response.data;
+};
+
+export const blockFriend = async (friendId: number) => {
+  const response = await axiosClient.post(`/friends/block/${friendId}`);
+  return response.data;
+};
+
+export const unblockFriend = async (friendId: number) => {
+  const response = await axiosClient.post(`/friends/unblock/${friendId}`);
+  return response.data;
+};
+
+export const getBlockedFriends = async (): Promise<{ data: IFriend[] }> => {
+  const response = await axiosClient.get("/friends/blocked");
+  return response.data;
+};
+
+export const getUserDetail = async (friendId: number) => {
+  const response = await axiosClient.get(`/user/${friendId}`);
   return response.data;
 };

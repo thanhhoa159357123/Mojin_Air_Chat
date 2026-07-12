@@ -1,21 +1,24 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { IAuthLogin, IAuthRegister } from "@/types/auth";
 import { toast } from "sonner";
-import { updateUserStatus } from "@/services/conversationService";
+import { useRouter } from "next/navigation"; // 🌟 BẢO BỐI: Import router của Next.js chính chủ
+import { IUpdateProfileInput } from "@/services/authService";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const useAuthHook = () => {
-  // Bốc thêm cái error từ store ra để vả vào Toast
   const store = useAuthStore();
+  const router = useRouter(); // Khởi tạo đài điều hướng điều khiển SPA
+  const queryClient = useQueryClient();
 
   const handleRegister = async (data: IAuthRegister) => {
     try {
       await store.register(data);
+      queryClient.clear();
       toast.success("Đăng ký thành công! Vào chat thôi bác.");
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
-      }
+
+      // 🌟 Dùng router chuyển trang, giữ nguyên RAM Zustand và kết nối Pusher
+      router.push("/");
     } catch (err: unknown) {
-      // err lúc này chính là Error(message) được throw từ Store sang
       if (err instanceof Error) {
         toast.error(err.message);
       } else {
@@ -27,14 +30,12 @@ export const useAuthHook = () => {
   const handleLogin = async (data: IAuthLogin) => {
     try {
       await store.login(data);
+      queryClient.clear();
       toast.success("Chào mừng bác đã quay lại!");
-      updateUserStatus("online").catch(() => {});
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
-      }
+
+      // 🌟 Dùng điều hướng Next.js xịn sò, không bị abort request ngầm
+      router.push("/");
     } catch (err: unknown) {
-      // Để là unknown nhé bác
-      // Ép TS nhận diện err là instance của class Error
       if (err instanceof Error) {
         toast.error(err.message);
       } else {
@@ -45,31 +46,35 @@ export const useAuthHook = () => {
 
   const handleLogout = async () => {
     try {
-      // 1. Lưu lại cái ID của Toast loading để tý nữa dismiss hoặc update nó
       const toastId = toast.loading("Đang đăng xuất...");
-
       await store.logout();
-
-      // 2. Thay vì hiện thêm 1 cái toast success, ta tắt cái loading đi
+      queryClient.clear();
       toast.dismiss(toastId);
 
-      // Nước đi chí mạng: Dùng window.location để Middleware và Client đồng bộ lại từ đầu
-      // if (typeof window !== "undefined") {
-      //   window.location.href = "/login";
-      // }
+      // Đăng xuất xóa sạch dữ liệu xong thì điều hướng an toàn về trang login
+      router.push("/login");
     } catch (err: unknown) {
       console.error("Logout API lỗi nhưng vẫn tống về Login", err);
+      queryClient.clear();
+      toast.dismiss();
 
-      // Bác có thể hiện toast báo lỗi nhanh trước khi chuyển trang
+      // Kể cả lỗi hệ thống vẫn tống cổ ra màn hình đăng nhập
+      router.push("/login");
+    }
+  };
+
+  const handleUpdateProfile = async (data: IUpdateProfileInput) => {
+    const toastId = toast.loading("Đang lưu thông tin...");
+    try {
+      await store.updateProfile(data);
+      toast.dismiss(toastId);
+      toast.success("Cập nhật thông tin thành công!");
+    } catch (err: unknown) {
+      toast.dismiss(toastId);
       if (err instanceof Error) {
-        toast.error(`Đăng xuất có vấn đề: ${err.message}`);
+        toast.error(err.message);
       } else {
-        toast.error("Đăng xuất có vấn đề rồi!");
-      }
-
-      // 3. ĐƯA RA NGOÀI DẤU NGOẶC: Kể cả lỗi vẫn phải tống về Login
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        toast.error("Lưu thông tin thất bại rồi!");
       }
     }
   };
@@ -79,5 +84,6 @@ export const useAuthHook = () => {
     handleRegister,
     handleLogin,
     handleLogout,
+    handleUpdateProfile,
   };
 };
