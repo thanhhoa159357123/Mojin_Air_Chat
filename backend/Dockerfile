@@ -1,12 +1,13 @@
 # Sử dụng base image FrankenPHP chính thức cực kỳ tối ưu cho Laravel
 FROM dunglas/frankenphp:1-php8.3-alpine
 
-# Cài đặt các extension hệ thống cần thiết cho Laravel & PostgreSQL
+# Cài đặt các extension hệ thống và LINUX-HEADERS cần thiết để compile sockets trên Alpine
 RUN apk add --no-cache \
     git \
     unzip \
     bash \
     postgresql-dev \
+    linux-headers \
     && docker-php-ext-install pdo pdo_pgsql bcmath sockets
 
 # Cài đặt Composer vào container
