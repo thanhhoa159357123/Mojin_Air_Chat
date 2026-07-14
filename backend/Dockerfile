@@ -32,5 +32,5 @@ ENV APP_ENV=production
 # Mở port 10000 theo tiêu chuẩn của Render
 EXPOSE 10000
 
-# Chuỗi lệnh tự động chạy Migrate + Seed trước khi dựng server FrankenPHP lên
-CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && frankenphp php-server --listen :10000 --public-dir public/"]
+# DÒNG CUỐI CÙNG NÀY: Chỉ chạy migrate sạch, ĐÃ XÓA hoàn toàn cụm db:seed tự động
+CMD ["sh", "-c", "php artisan migrate --force && frankenphp php-server --listen :10000 --public-dir public/"]
