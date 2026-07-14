@@ -22,7 +22,7 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
     <QueryClientProvider client={queryClient}>
       {children}
       {/* Cục này để bật bảng Debug dưới góc màn hình lúc dev */}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* <ReactQueryDevtools initialIsOpen={false} /> */}
     </QueryClientProvider>
   );
 }
