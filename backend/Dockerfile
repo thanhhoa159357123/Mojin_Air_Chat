@@ -33,4 +33,4 @@ ENV APP_ENV=production
 EXPOSE 10000
 
 # DÒNG CUỐI CÙNG NÀY: Chỉ chạy migrate sạch, ĐÃ XÓA hoàn toàn cụm db:seed tự động
-CMD ["sh", "-c", "php artisan migrate --force && frankenphp php-server --listen :10000 --public-dir public/"]
+CMD ["sh", "-c", "php artisan migrate --force && /usr/local/bin/frankenphp php-server --listen :10000 --public-dir public/"]
