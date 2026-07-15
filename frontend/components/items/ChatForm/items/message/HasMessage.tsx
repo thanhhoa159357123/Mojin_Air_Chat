@@ -193,7 +193,7 @@ const HasMessage = ({
               </a>
             </div>
           ) : msg.type === "mixed" ? (
-            <div className="flex flex-col gap-2 max-w-72">
+            <div className="flex flex-col gap-2 max-w-full w-full break-words">
               {msg.edit_count > 0 && (
                 <span className="text-[10px] text-foreground/50 italic self-end pr-1 mt-1">
                   (Đã chỉnh sửa)
@@ -295,20 +295,21 @@ const HasMessage = ({
 
               {/* 🌟 VÀ VÁ THÊM KHÚC NÀY CỦA BÁC: Render đoạn Text đi kèm ảnh/file */}
               {currentContent.text && (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word pt-1 text-white">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word text-white w-full">
                   {currentContent.text}
                 </p>
               )}
             </div>
           ) : (
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full max-w-full break-all">
               {msg.edit_count > 0 && (
                 <span className="text-[10px] text-primary-foreground/70 italic self-end mt-0.5">
                   (Đã chỉnh sửa)
                 </span>
               )}
 
-              <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+              {/* Dùng break-all để ép chuỗi bùa chú dài dằng dặc này bắt buộc phải xuống dòng */}
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-all">
                 {msg.content}
               </p>
             </div>

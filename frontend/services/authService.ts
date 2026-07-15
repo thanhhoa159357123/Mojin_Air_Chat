@@ -1,4 +1,5 @@
 import axiosClient from "@/lib/axios";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { IAuthLogin, IAuthRegister, IAuthResponse } from "@/types/auth";
 
 export interface IUpdateProfileInput {
@@ -45,7 +46,9 @@ export const login = async (data: IAuthLogin): Promise<IAuthResponse> => {
  */
 export const logout = async (): Promise<void> => {
   try {
-    await axiosClient.post("/logout");
+    // 💡 BỐC REFRESH TOKEN GỬI KÈM LÊN ĐỂ BACKEND XÓA SẠCH DẤU VẾT
+    const refreshToken = useAuthStore.getState().refreshToken;
+    await axiosClient.post("/logout", { refresh_token: refreshToken });
   } catch (error) {
     console.error("Lỗi khi đăng xuất:", error);
     throw error;

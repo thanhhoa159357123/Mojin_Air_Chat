@@ -48,8 +48,6 @@ export default function Home() {
     (state) => state.setActionTarget,
   );
   const user = useAuthStore((state) => state.user);
-  console.log("Trạng thái User hiện tại: ", user)
-  console.log("Đã vào trang chủ");
 
   return (
     <div className="w-full h-screen bg-background flex gap-4 px-4 py-3 overflow-hidden font-sans">

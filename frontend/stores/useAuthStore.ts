@@ -8,6 +8,7 @@ import {
   registerSchema,
 } from "@/types/auth";
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware"; // 🌟 BẢO BỐI GIỮ TOKEN QUA F5
 import {
   IUpdateProfileInput,
   login,
@@ -15,170 +16,185 @@ import {
   register,
   updateProfile,
 } from "../services/authService";
-import { extractErrorMessage } from "@/lib/errorHandler"; // <-- IMPORT THẰNG NÀY VÀO BÁC ƠI
+import { extractErrorMessage } from "@/lib/errorHandler";
 import { useConversationStore } from "./useConversationStore";
-import { updateUserStatus } from "@/services/conversationService";
+import { cryptoStorage } from "@/lib/crypto";
 
 const clearConversationState = () => {
   useConversationStore.getState().reset();
   useConversationStore.persist.clearStorage();
   if (typeof window !== "undefined") {
     localStorage.removeItem("mojin-conversation-storage");
+    // Xóa nốt cookie mồi của middleware
+    document.cookie =
+      "mojin_logged_in=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   }
 };
 
-export const useAuthStore = create<IAuthState>()((set) => ({
-  user: null,
-  accessToken: null,
-  isAuthenticated: false,
-  loading: false,
-  error: null,
+export const useAuthStore = create<IAuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null,
 
-  register: async (data: IAuthRegister) => {
-    const validation = registerSchema.safeParse(data);
-
-    if (!validation.success) {
-      const firstError = validation.error.issues[0].message;
-      set({ error: firstError, loading: false });
-      throw new Error(firstError);
-    }
-
-    set({ loading: true, error: null });
-    try {
-      const res = await register(data);
-      clearConversationState();
-      set({
-        user: res.user,
-        accessToken: res.access_token, // 💡 Lưu token vào RAM
-        isAuthenticated: true,
-        loading: false,
-      });
-    } catch (error: unknown) {
-      // --- SẠCH ĐẸP GỌN GÀNG ---
-      const message = extractErrorMessage(error, "Đăng ký toang rồi bác ơi!");
-      set({ error: message, loading: false });
-      throw new Error(message);
-    }
-  },
-
-  login: async (data: IAuthLogin) => {
-    const validation = loginSchema.safeParse(data);
-
-    if (!validation.success) {
-      const firstError = validation.error.issues[0].message;
-      set({ error: firstError, loading: false });
-      throw new Error(firstError);
-    }
-
-    set({ loading: true, error: null });
-    clearConversationState();
-    try {
-      const res = await login(data);
-      set({
-        user: res.user,
-        accessToken: res.access_token, // 💡 Lưu token vào RAM
-        isAuthenticated: true,
-        loading: false,
-      });
-    } catch (error: unknown) {
-      // --- SẠCH ĐẸP GỌN GÀNG ---
-      const message = extractErrorMessage(error, "Sai pass hay gì rồi!");
-      set({ error: message, loading: false });
-      throw new Error(message);
-    }
-  },
-
-  logout: async () => {
-    set({ loading: true });
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout API lỗi nhưng vẫn xóa trắng client", error);
-    } finally {
-      // 💡 Xóa trắng RAM, đéo còn dính dáng gì ổ cứng
-      set({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
-        loading: false,
-        error: null,
-      });
-      clearConversationState();
-    }
-  },
-
-  checkAuth: async () => {
-    set({ loading: true });
-    try {
-      // 💡 F5 trang -> Mất AccessToken -> Gọi API này -> Axios Interceptor sẽ tự âm thầm đi Refresh ngầm để cứu giá!
-      const response = await axiosClient.get<IUser>("/user");
-
-      set({
-        user: response.data,
-        isAuthenticated: true,
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Check auth toang, user đã mất tích quá 7 ngày", error);
-      set({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
-        loading: false,
-      });
-      clearConversationState();
-    }
-  },
-
-  updateAvatarState: (avatarUrl: string) => {
-    set((state) => {
-      // Nếu có user đang đăng nhập thì mới tiến hành đè data
-      if (state.user) {
-        return {
-          user: {
-            ...state.user,
-            avatar: avatarUrl, // Ghi đè link ảnh mới từ Cloudinary dội về
-          },
-        };
-      }
-      return {};
-    });
-  },
-
-  updateProfileState: (updatedUser: IUser) => {
-    set((state) => {
-      if (state.user) {
-        return {
-          user: {
-            ...state.user,
-            ...updatedUser,
-          },
-        };
-      }
-      return {};
-    });
-  },
-
-  // 💡 HÀM THỰC THI GỌI API BỊ THIẾU
-  updateProfile: async (data: IUpdateProfileInput) => {
-    set({ loading: true, error: null });
-    try {
-      const res = await updateProfile(data); // Gọi axios.put
-
-      // Thành công thì bốc cục res.user ném vào hàm cập nhật RAM
-      set((state) => {
-        if (state.user) {
-          return {
-            user: { ...state.user, ...res.user },
-            loading: false,
-          };
+      register: async (data: IAuthRegister) => {
+        const validation = registerSchema.safeParse(data);
+        if (!validation.success) {
+          const firstError = validation.error.issues[0].message;
+          set({ error: firstError, loading: false });
+          throw new Error(firstError);
         }
-        return { loading: false };
-      });
-    } catch (error: unknown) {
-      const message = extractErrorMessage(error, "Lưu thông tin toang rồi!");
-      set({ error: message, loading: false });
-      throw new Error(message);
-    }
-  },
-}));
+        set({ loading: true, error: null });
+        try {
+          const res = await register(data);
+          clearConversationState();
+
+          // Tạo cookie mồi nội bộ để phục vụ Middleware Next.js
+          document.cookie =
+            "mojin_logged_in=true; path=/; max-age=604800; SameSite=Lax";
+
+          set({
+            user: res.user,
+            accessToken: res.access_token,
+            refreshToken: res.refresh_token,
+            isAuthenticated: true,
+            loading: false,
+          });
+        } catch (error: unknown) {
+          const message = extractErrorMessage(
+            error,
+            "Đăng ký toang rồi bác ơi!",
+          );
+          set({ error: message, loading: false });
+          throw new Error(message);
+        }
+      },
+
+      login: async (data: IAuthLogin) => {
+        const validation = loginSchema.safeParse(data);
+        if (!validation.success) {
+          const firstError = validation.error.issues[0].message;
+          set({ error: firstError, loading: false });
+          throw new Error(firstError);
+        }
+        set({ loading: true, error: null });
+        clearConversationState();
+        try {
+          const res = await login(data);
+
+          // Tạo cookie mồi nội bộ để phục vụ Middleware Next.js
+          document.cookie =
+            "mojin_logged_in=true; path=/; max-age=604800; SameSite=Lax";
+
+          set({
+            user: res.user,
+            accessToken: res.access_token,
+            refreshToken: res.refresh_token,
+            isAuthenticated: true,
+            loading: false,
+          });
+        } catch (error: unknown) {
+          const message = extractErrorMessage(error, "Sai pass hay gì rồi!");
+          set({ error: message, loading: false });
+          throw new Error(message);
+        }
+      },
+
+      logout: async () => {
+        set({ loading: true });
+        try {
+          await logout();
+        } catch (error) {
+          console.error("Logout API lỗi nhưng vẫn xóa trắng client", error);
+        } finally {
+          set({
+            user: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            loading: false,
+            error: null,
+          });
+          clearConversationState();
+        }
+      },
+
+      checkAuth: async () => {
+        set({ loading: true });
+        try {
+          const response = await axiosClient.get<IUser>("/user");
+          set({ user: response.data, isAuthenticated: true, loading: false });
+        } catch (error) {
+          console.error("Check auth toang", error);
+          set({
+            user: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            loading: false,
+          });
+          clearConversationState();
+        }
+      },
+
+      updateAvatarState: (avatarUrl: string) => {
+        set((state) =>
+          state.user ? { user: { ...state.user, avatar: avatarUrl } } : {},
+        );
+      },
+
+      updateProfileState: (updatedUser: IUser) => {
+        set((state) =>
+          state.user ? { user: { ...state.user, ...updatedUser } } : {},
+        );
+      },
+
+      updateProfile: async (data: IUpdateProfileInput) => {
+        set({ loading: true, error: null });
+        try {
+          const res = await updateProfile(data);
+          set((state) =>
+            state.user
+              ? { user: { ...state.user, ...res.user }, loading: false }
+              : { loading: false },
+          );
+        } catch (error: unknown) {
+          const message = extractErrorMessage(
+            error,
+            "Lưu thông tin toang rồi!",
+          );
+          set({ error: message, loading: false });
+          throw new Error(message);
+        }
+      },
+    }),
+    {
+      name: "mojin-auth-storage",
+      storage: createJSONStorage(() => ({
+        // 🌟 BẪY ĐÁNH CHẶN LÚC ĐỌC: Giải mã dữ liệu trước khi nạp vào Zustand RAM
+        getItem: (name) => {
+          const value = localStorage.getItem(name);
+          if (!value) return null;
+          return cryptoStorage.decrypt(value);
+        },
+        // 🌟 BẪY ĐÁNH CHẶN LÚC GHI: Mã hóa banh xác dữ liệu rồi mới ném xuống ổ cứng
+        setItem: (name, value) => {
+          const encryptedValue = cryptoStorage.encrypt(value);
+          localStorage.setItem(name, encryptedValue);
+        },
+        // Lúc xóa thì cứ xóa bình thường
+        removeItem: (name) => localStorage.removeItem(name),
+      })),
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    },
+  ),
+);

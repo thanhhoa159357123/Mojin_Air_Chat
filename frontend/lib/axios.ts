@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -7,16 +8,12 @@ const axiosClient = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  // 💡 BẮT BUỘC CÓ: Để nó tự động mang theo bánh quy HttpOnly gửi lên Server
-  withCredentials: true,
+  // 💡 Đmax ĐÃ XÓA withCredentials: true. Đéo thèm chơi với Cookie chéo domain!
 });
 
-// Hàng đợi để tránh gọi API Refresh nhiều lần cùng lúc
 let isRefreshing = false;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let failedQueue: any[] = [];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);
@@ -25,9 +22,8 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// TRẠM GÁC LƯỢT ĐI: Tự động móc AccessToken từ RAM nhét vào Header
+// TRẠM GÁC LƯỢT ĐI: Tự động móc AccessToken từ Zustand nhét vào Header
 axiosClient.interceptors.request.use((config) => {
-  // Lấy thẳng từ RAM của Zustand
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -35,21 +31,18 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
-// TRẠM GÁC LƯỢT VỀ: Xử lý sự cố 401 (Chống giật UI)
+// TRẠM GÁC LƯỢT VỀ: Xử lý sự cố 401
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Nếu mã lỗi là 401 (Hết hạn Token) và request này CHƯA TỪNG được thử lại
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // Bỏ qua đường dẫn /login và /refresh để tránh lặp vô hạn
       if (originalRequest.url.includes("/login") || originalRequest.url.includes("/auth/refresh")) {
         return Promise.reject(error);
       }
 
       if (isRefreshing) {
-        // Đang có khứa khác đi lấy Token rồi, xếp hàng chờ đi em!
         return new Promise(function (resolve, reject) {
           failedQueue.push({ resolve, reject });
         })
@@ -64,29 +57,37 @@ axiosClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        console.log("🛰️ [Silent Refresh] Đang âm thầm đi lấy Token mới...");
-        // Gọi thẳng bằng axios thường (để không dính cái interceptor này)
+        console.log("🛰️ [Silent Refresh] Đang âm thầm đi lấy Token mới qua Body JSON...");
+        const currentRefreshToken = useAuthStore.getState().refreshToken;
+        
+        if (!currentRefreshToken) throw new Error("Không có Refresh Token");
+
+        // Gọi thẳng endpoint /refresh bằng instance axios thường, ném token vào body
         const res = await axios.post(
           `${axiosClient.defaults.baseURL}/auth/refresh`,
-          {},
-          { withCredentials: true }
+          { refresh_token: currentRefreshToken },
+          { headers: { "Content-Type": "application/json", Accept: "application/json" } }
         );
 
         const newAccessToken = res.data.access_token;
+        const newRefreshToken = res.data.refresh_token;
         
-        // 1. Cập nhật Token mới toanh vào RAM
-        useAuthStore.setState({ accessToken: newAccessToken });
+        // 1. Ghi đè cập nhật cặp Token mới toanh vào Zustand
+        useAuthStore.setState({ accessToken: newAccessToken, refreshToken: newRefreshToken });
         
-        // 2. Thả cửa cho hàng đợi đi tiếp
+        // 2. Thông báo thông tuyến cho hàng đợi
         processQueue(null, newAccessToken);
         
-        // 3. Hồi sinh cái request ban đầu
+        // 3. Hồi sinh request ban đầu
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return axiosClient(originalRequest);
       } catch (refreshError) {
-        // Toang hẳn, RefreshToken cũng chết -> Đuổi cổ ra trang Login
         processQueue(refreshError, null);
+        // Hết thuốc chữa -> Xóa sạch RAM & Ổ cứng -> Đá về login
         useAuthStore.getState().logout();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

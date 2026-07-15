@@ -33,6 +33,7 @@ export interface IAuthLogin {
 
 export interface IAuthResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: IUser;
 }
@@ -40,6 +41,7 @@ export interface IAuthResponse {
 export interface IAuthState {
   user: IUser | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;

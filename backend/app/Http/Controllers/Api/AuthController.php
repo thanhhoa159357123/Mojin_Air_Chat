@@ -14,20 +14,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
-    private function getRefreshTokenCookie($refreshToken)
-    {
-        return cookie(
-            'mojin_refresh_token',
-            $refreshToken,
-            7 * 24 * 60,
-            '/',
-            null,
-            config('app.env') === 'production',
-            true,
-            false,
-            'Lax'
-        );
-    }
+    // ❌ ĐÃ XÓA HÀM getRefreshTokenCookie() VÌ ĐÉO DÙNG COOKIE NỮA
 
     public function register(Request $request)
     {
@@ -54,10 +41,11 @@ class AuthController extends Controller
 
         return response()->json([
             'access_token' => $accessToken,
+            'refresh_token' => $refreshToken, // Trả thẳng qua JSON
             'token_type' => 'Bearer',
             'message' => 'Đăng ký thành công! Mời bạn vào phòng chat để kết nối với mọi người.',
             'user' => User::find($user->id),
-        ], 201)->withCookie($this->getRefreshTokenCookie($refreshToken));
+        ], 201);
     }
 
     public function login(Request $request)
@@ -78,18 +66,12 @@ class AuthController extends Controller
         $accessToken = $user->createToken('access_token', ['*'], now()->addMinutes(15))->plainTextToken;
         $refreshToken = $user->createToken('refresh_token', ['*'], now()->addDays(7))->plainTextToken;
 
-        // 🌟 ÉP GHI THẲNG XUỐNG CSDL
         $now = now();
         DB::table('users')->where('id', $user->id)->update([
             'status' => 'online',
             'last_active_at' => $now
         ]);
 
-        // 💡 ĐỒNG BỘ LOG CHUẨN TỪ DATABASE THẬT, KHÔNG LẤY TỪ BIẾN RAM CŨ
-        $realStatus = DB::table('users')->where('id', $user->id)->value('status');
-        Log::info("Trạng thái status THỰC TẾ của user_id {$user->id} trong MySQL: " . $realStatus);
-
-        // 🌟 BỌC AN TOÀN TRÁNH BẪY NGHẼN BROADCAST LÀM ROLLBACK DB
         try {
             broadcast(new UserStatusChanged($user->id, 'online', $now));
         } catch (\Exception $e) {
@@ -98,10 +80,11 @@ class AuthController extends Controller
 
         return response()->json([
             'access_token' => $accessToken,
+            'refresh_token' => $refreshToken, // Trả thẳng qua JSON
             'token_type' => 'Bearer',
             'message' => 'Đăng nhập thành công!',
-            'user' => User::find($user->id), // Trả về data tươi sống
-        ], 200)->withCookie($this->getRefreshTokenCookie($refreshToken));
+            'user' => User::find($user->id),
+        ], 200);
     }
 
     public function logout(Request $request)
@@ -113,17 +96,10 @@ class AuthController extends Controller
                 $user = $accessToken->tokenable;
                 if ($user) {
                     $now = now();
-
-                    // 🌟 ÉP GHI THẲNG XUỐNG CSDL
                     DB::table('users')->where('id', $user->id)->update([
                         'status' => 'offline',
                         'last_active_at' => $now
                     ]);
-
-                    $realStatus = DB::table('users')->where('id', $user->id)->value('status');
-                    Log::info("User_id {$user->id} đã chạy lệnh logout, status thực tế trong DB: " . $realStatus);
-
-                    // 🌟 BỌC AN TOÀN TRÁNH BẪY NGHẼN BROADCAST
                     try {
                         broadcast(new UserStatusChanged($user->id, 'offline', $now));
                     } catch (\Exception $e) {
@@ -134,7 +110,8 @@ class AuthController extends Controller
             }
         }
 
-        $refreshTokenRaw = $request->cookie('mojin_refresh_token');
+        // Đọc từ Body JSON gửi lên
+        $refreshTokenRaw = $request->input('refresh_token');
         if ($refreshTokenRaw) {
             $tokenInstance = PersonalAccessToken::findToken($refreshTokenRaw);
             if ($tokenInstance) {
@@ -142,14 +119,13 @@ class AuthController extends Controller
             }
         }
 
-        $cookie = cookie('mojin_refresh_token', '', -1, '/', null, config('app.env') === 'production', true, false, 'Lax');
-
-        return response()->json(['message' => 'Đăng xuất thành công!'], 200)->withCookie($cookie);
+        return response()->json(['message' => 'Đăng xuất thành công!'], 200);
     }
 
     public function refresh(Request $request)
     {
-        $refreshTokenRaw = $request->cookie('mojin_refresh_token');
+        // Nhận từ Body JSON gửi lên
+        $refreshTokenRaw = $request->input('refresh_token');
 
         if (!$refreshTokenRaw) {
             return response()->json(['message' => 'Không tìm thấy Refresh Token. Hãy đăng nhập lại.'], 401);
@@ -176,8 +152,9 @@ class AuthController extends Controller
 
         return response()->json([
             'access_token' => $newAccessToken,
+            'refresh_token' => $newRefreshToken,
             'user' => User::find($user->id)
-        ], 200)->withCookie($this->getRefreshTokenCookie($newRefreshToken));
+        ], 200);
     }
 
     public function updateInformation(Request $request)
