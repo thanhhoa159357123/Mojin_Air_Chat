@@ -16,10 +16,10 @@
 
 ## 🚀 Live Demo
 
-| Service | URL |
-|----------|-----|
-| Frontend | Coming Soon |
-| Backend API | Private |
+| Service | Link |
+|----------|------|
+| 🌐 Frontend | **https://mojin-air-chat.vercel.app/** |
+| ⚙️ Backend API | Private (REST API) |
 
 ---
 
